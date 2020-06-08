@@ -10,13 +10,13 @@ class Model:
     def __init__(self, x_train, y_train, params, input_features, target_features,
                  model_name=None, model_file=None, save_model=False):
 
-        # Check if model name and model file are both given
+        # Check if model_name and model_file are both given
         if model_file and model_name is not None:
             print('Please either specify a model_name if training a new model or a model_file '
                   'if loading a trained model')
             exit()
 
-        # Check if model has already been run
+        # Check if model_name exists
         if os.path.isdir(str(model_name)):
             print('The model with the specified name already exists. '
                   'Please choose a different model_name or delete the model directory.')
@@ -54,9 +54,10 @@ class Model:
         preds = self.model.predict(x_test)
 
         if save_preds:
+            if os.path.isfile('model/point_estimates.npy'):
+                print('Previously saved point estimates have been overwritten')
             np.save(self.path + 'point_estimates.npy', preds)
 
-        print(preds)
         return preds
 
     def posterior(self, x_test, y_test, save_pdfs=False, make_plots=False):
@@ -87,7 +88,9 @@ class Model:
             pdfs[sample].extend(sample_pdf)
 
         if save_pdfs:
-            if not os.path.isdir('model/posterior'):
+            if os.path.isdir('model/posterior'):
+                print('Previously saved posteriors have been overwritten')
+            else:
                 os.mkdir('model/posterior')
             for sample in range(10):
                 sample_pdf = np.array(pdfs[sample])
