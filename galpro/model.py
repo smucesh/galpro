@@ -10,6 +10,18 @@ class Model:
     def __init__(self, x_train, y_train, params, input_features, target_features,
                  model_name=None, model_file=None, save_model=False):
 
+        # Check if model name and model file are both given
+        if model_file and model_name is not None:
+            print('Please either specify a model_name if training a new model or a model_file '
+                  'if loading a trained model')
+            exit()
+
+        # Check if model has already been run
+        if os.path.isdir(str(model_name)):
+            print('The model with the specified name already exists. '
+                  'Please choose a different model_name or delete the model directory.')
+            exit()
+
         # Initialise
         self.x_train = x_train
         self.y_train = y_train
@@ -20,21 +32,15 @@ class Model:
         self.model_file = model_file
         self.save_model = save_model
 
-        # Check if the model has already been run
-        if os.path.isdir(str(self.model_name)):
-            print('The model with the specified name already exists. '
-                  'Please choose a different model name or specify the model file.')
-            exit()
-
         if self.model_file is None:
             # Train model
             self.model = RandomForestRegressor(**self.params)
             self.model.fit(self.x_train, self.y_train)
 
+            os.mkdir(str(self.model_name))
+            self.path = os.getcwd() + '/' + str(self.model_name) + '/'
             if save_model:
                 model_file = str(self.model_name) + '.sav'
-                os.mkdir(str(self.model_name))
-                self.path = os.getcwd() + '/' + str(self.model_name) + '/'
                 joblib.dump(self.model, self.path + model_file)
 
         else:
@@ -81,7 +87,8 @@ class Model:
             pdfs[sample].extend(sample_pdf)
 
         if save_pdfs:
-            os.mkdir('model/posterior')
+            if not os.path.isdir('model/posterior'):
+                os.mkdir('model/posterior')
             for sample in range(10):
                 sample_pdf = np.array(pdfs[sample])
                 f = h5py.File(self.path + 'posterior/' + str(sample) + ".h5", "w")
