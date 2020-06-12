@@ -41,13 +41,14 @@ class Model:
             self.model.fit(self.x_train, self.y_train)
 
             os.mkdir(str(self.model_name))
-            self.path = os.getcwd() + '/' + str(self.model_name) + '/'
+            self.path = os.getcwd() + '/' + self.model_name + '/'
             if save_model:
-                model_file = str(self.model_name) + '.sav'
+                model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
 
         else:
-            self.path = os.getcwd() + '/' + str(self.model_file)[0:-4] + '/'
+            self.model_name = str(self.model_file)[0:-4]
+            self.path = os.getcwd() + '/' + self.model_name
 
     def point_estimate(self, x_test, y_test, run_metrics=False, save_preds=False, make_plots=False):
 
@@ -57,9 +58,11 @@ class Model:
         self.y_preds = self.model.predict(x_test)
 
         if save_preds:
-            if os.path.isfile('model/point_estimates.npy'):
+            if os.path.isdir(self.model_name + '/point_estimates'):
                 print('Previously saved point estimates have been overwritten')
-            np.save(self.path + 'point_estimates.npy', self.y_preds)
+            else:
+                os.mkdir(self.model_name + '/point_estimates')
+            np.save(self.path + '/point_estimates/' + 'point_estimates.npy', self.y_preds)
 
         return self.y_preds
 
@@ -91,17 +94,17 @@ class Model:
             self.pdfs[sample].extend(sample_pdf)
 
         if save_pdfs:
-            if os.path.isdir('model/posterior'):
+            if os.path.isdir(self.model_name + '/posterior'):
                 print('Previously saved posteriors have been overwritten')
             else:
-                os.mkdir('model/posterior')
+                os.mkdir(self.model_name + '/posterior')
             for sample in np.arange(y_test.shape[0]):
                 sample_pdf = np.array(self.pdfs[sample])
-                f = h5py.File(self.path + 'posterior/' + str(sample) + ".h5", "w")
+                f = h5py.File(self.path + '/posterior/' + str(sample) + ".h5", "w")
                 f.create_dataset('data', data=sample_pdf)
 
         return self.pdfs
 
-    def validate(self, y_test, make_plots=False, save_validation=False):
+    def validate(self, y_test, save_validation=False, make_plots=False):
         return validate(y_test=y_test, make_plots=make_plots, save_validation=save_validation,
-                        pdfs=self.pdfs, path=self.path)
+                        pdfs=self.pdfs, path=self.path, model_name=self.model_name)
