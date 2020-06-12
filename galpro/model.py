@@ -148,3 +148,62 @@ class Model:
                 marginal_calibration[count, feature] = pred_cdf - true_cdf
                 count += 1
 
+        def _create_templates(no_features):
+
+            template = []
+            for feature in np.arange(no_features):
+
+                if feature != (no_features - 1):
+                    template.append('(pdf[:,' + str(feature) + '] < pdf[pred,' + str(feature) + ']) & ')
+                else:
+                    template.append('(pdf[:,' + str(feature) + '] < pdf[pred,' + str(feature) + '])')
+
+            template_pred = ''.join(template)
+            template_true = template_pred.replace('pdf[pred', 'y_test[sample')
+            template_true = template_true.replace('<', '<=')
+
+            return template_pred, template_true
+
+        # Probabilistic copula calibration
+
+        # Creating a list of list containing pred_cdf of each point in predictions
+        pred_cdf_full = [[] for i in np.arange(no_samples)]
+        true_cdf_full = []
+        coppits = np.empty(no_samples)
+        template_pred, template_true = _create_templates(no_features)
+
+        for sample in np.arange(no_samples):
+            pdf = np.array(self.pdfs[sample])
+            no_preds = pdf.shape[0]
+
+            for pred in np.arange(no_preds):
+                # For point at edges, if <= used, then point counts and cdf is never 0.
+                # If <= is used, a large number of point will have near 0 probability, as a result, there will
+                # be a peak at 0.
+                # -1 insures, the point in consideration does not count when determining cdf.
+
+                pred_cdf_full[sample].append(np.sum(eval(template_pred))/(no_preds-1))
+
+            true_cdf_full.append(np.sum(eval(template_true))/no_preds)
+            coppits[sample] = np.sum(pred_cdf_full[sample] <= true_cdf_full[sample])/no_preds
+
+        # Kendall calibration
+        kendall_calibration = np.empty(no_points)
+        count = 0
+
+        for point in np.linspace(0, 1, no_points):
+            sum_ = np.zeros(no_samples)
+            for sample in np.arange(no_samples):
+                sum_[sample] = np.sum(pred_cdf_full[sample] <= point)/len(pred_cdf_full[sample])
+
+            kendall_func_point = np.sum(sum_)/no_samples
+            true_cdf_point = np.sum(true_cdf_full <= point)/no_samples
+            kendall_calibration[count] = kendall_func_point - true_cdf_point
+            count += 1
+
+        return kendall_calibration
+
+
+
+
+
