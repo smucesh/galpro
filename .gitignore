@@ -132,4 +132,3 @@ dmypy.json
 /galpro/model/
 /galpro/test.py
 /.idea
-/galpro/plot.py
