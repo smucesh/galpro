@@ -4,7 +4,7 @@ import joblib
 import h5py
 import os
 from galpro.validation import validate
-from galpro.plot import plot_scatter
+from galpro.plot import *
 
 
 class Model:
@@ -54,7 +54,7 @@ class Model:
     def point_estimate(self, x_test, y_test, run_metrics=False, save_preds=False, make_plots=False):
 
         if self.model_file is not None:
-            self.model = joblib.load(self.path + '/' +self.model_file)
+            self.model = joblib.load(self.path + '/' + self.model_file)
 
         self.y_preds = self.model.predict(x_test)
 
@@ -66,18 +66,14 @@ class Model:
             np.save(self.path + '/point_estimates/' + 'point_estimates.npy', self.y_preds)
 
         if make_plots:
-            if os.path.isdir(self.model_name + '/point_estimates'):
-                print('Previously saved scatter plots have been overwritten')
-            else:
-                os.mkdir(self.model_name + '/point_estimates')
-            self.plot_scatter(y_test=y_test, y_pred=self.y_preds, target_features=self.target_features)
+            self.plot_scatter(y_test=y_test, y_pred=self.y_preds)
 
         return self.y_preds
 
     def posterior(self, x_test, y_test, save_pdfs=False, make_plots=False):
 
         if self.model_file is not None:
-            self.model = joblib.load(self.path + self.model_file)
+            self.model = joblib.load(self.path + '/' + self.model_file)
 
         # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
         # associated with training samples.
@@ -111,11 +107,19 @@ class Model:
                 f = h5py.File(self.path + '/posterior/' + str(sample) + ".h5", "w")
                 f.create_dataset('data', data=sample_pdf)
 
+        if make_plots:
+            self.plot_posterior(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
+
         return self.pdfs
 
     def validate(self, y_test, save_validation=False, make_plots=False):
         return validate(y_test=y_test, make_plots=make_plots, save_validation=save_validation,
                         pdfs=self.pdfs, path=self.path, model_name=self.model_name)
 
-    def plot_scatter(self, y_test, y_pred, target_features):
-        return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=target_features, path=self.path)
+    def plot_scatter(self, y_test, y_pred):
+        return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path,
+                            model_name=self.model_name)
+
+    def plot_posterior(self, y_test, y_pred, pdfs):
+        return plot_posterior(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features,
+                              path=self.path, model_name=self.model_name)
