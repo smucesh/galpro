@@ -108,7 +108,8 @@ class Model:
                 f.create_dataset('data', data=sample_pdf)
 
         if make_plots:
-            self.plot_posterior(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
+            #self.plot_posterior(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
+            self.plot_corner(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
 
         return self.pdfs
 
@@ -122,4 +123,8 @@ class Model:
 
     def plot_posterior(self, y_test, y_pred, pdfs):
         return plot_posterior(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features,
+                              path=self.path, model_name=self.model_name)
+
+    def plot_corner(self, y_test, y_pred, pdfs):
+        return plot_corner(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features,
                               path=self.path, model_name=self.model_name)

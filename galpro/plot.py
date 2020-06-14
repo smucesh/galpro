@@ -1,17 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 import os
 
 
 def plot_scatter(y_test, y_pred, target_features, path, model_name):
+    sns.set_style('white')
+    sns.set_style("ticks")
 
     if os.path.isdir(model_name + '/point_estimates/plots'):
         print('Previously saved scatter plots have been overwritten')
     else:
         os.mkdir(model_name + '/point_estimates/plots')
 
-    sns.set(style='white')
     no_features = y_test.shape[1]
     for feature in range(no_features):
         min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
@@ -27,13 +29,14 @@ def plot_scatter(y_test, y_pred, target_features, path, model_name):
 
 
 def plot_posterior(y_test, y_pred, pdfs, target_features, path, model_name):
+    sns.set_style('white')
+    sns.set_style("ticks")
 
     if os.path.isdir(model_name + '/posterior/plots'):
         print('Previously saved posterior plots have been overwritten')
     else:
         os.mkdir(model_name + '/posterior/plots')
 
-    sns.set(style='white')
     no_samples = y_test.shape[0]
     for sample in np.arange(no_samples):
         pdf = np.array(pdfs[sample])
@@ -51,4 +54,23 @@ def plot_posterior(y_test, y_pred, pdfs, target_features, path, model_name):
         plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
         plt.savefig(path + '/posterior/plots/' + 'joint_pdf_' + str(sample) + '.png',
                     bbox_inches='tight', dpi=600)
-        plt.clf()
+        plt.close()
+
+
+def plot_corner(y_test, y_pred, pdfs, target_features, path, model_name):
+    sns.set_style('white')
+    sns.set_style("ticks")
+
+    if os.path.isdir(model_name + '/posterior/plots'):
+        print('Previously saved corner plots have been overwritten')
+    else:
+        os.mkdir(model_name + '/posterior/plots')
+
+    no_samples = y_test.shape[0]
+    for sample in np.arange(no_samples):
+        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=['$z$', '$M_{\star}$'])
+        g = sns.PairGrid(data=pdf, corner=True, despine=True)
+        g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
+        g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
+        plt.savefig(path + '/posterior/plots/' + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+        plt.close()
