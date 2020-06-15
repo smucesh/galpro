@@ -3,18 +3,19 @@ import h5py
 import os
 
 
-def validate(y_test, pdfs, path, model_name, make_plots=False, save_validation=False):
+def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
 
     no_samples, no_features = [y_test.shape[0], y_test.shape[1]]
     no_points = 100
 
+    folder = '/posteriors/'
     # Check if posterior() has been run
     if pdfs is None:
         # If not then try to load any saved posteriors
         pdfs = []
-        if os.path.isdir(model_name + '/posterior'):
+        if os.path.isdir(path + folder):
             for sample in np.arange(no_samples):
-                pdf = h5py.File(path + '/posterior/' + str(sample) + ".h5", "r")
+                pdf = h5py.File(path + folder + str(sample) + ".h5", "r")
                 pdfs.append(pdf['data'][:])
         else:
             print('No posteriors have been found. Please run Model.posterior()'
@@ -86,15 +87,16 @@ def validate(y_test, pdfs, path, model_name, make_plots=False, save_validation=F
         kendall_calibration[count] = kendall_func_point - true_cdf_point
         count += 1
 
+    folder = '/validation/'
     if save_validation:
-        if os.path.isdir(model_name + '/validation'):
+        if os.path.isdir(path + folder):
             print('Previously saved validation has been overwritten')
         else:
-            os.mkdir(model_name + '/validation')
-        np.save(path + '/validation/' + 'pits.npy', pits)
-        np.save(path + '/validation/' + 'marginal_calibration.npy', marginal_calibration)
-        np.save(path + '/validation/' + 'coppits.npy', coppits)
-        np.save(path + '/validation/' + 'kendall_calibration.npy', kendall_calibration)
+            os.mkdir(path + folder)
+        np.save(path + folder + 'pits.npy', pits)
+        np.save(path + folder + 'marginal_calibration.npy', marginal_calibration)
+        np.save(path + folder + 'coppits.npy', coppits)
+        np.save(path + folder + 'kendall_calibration.npy', kendall_calibration)
 
     return pits, marginal_calibration, coppits, kendall_calibration
 

@@ -33,7 +33,7 @@ class Model:
         self.model_name = model_name
         self.model_file = model_file
         self.save_model = save_model
-        self.y_preds = None
+        self.preds = None
         self.pdfs = None
 
         if self.model_file is None:
@@ -42,7 +42,7 @@ class Model:
             self.model.fit(self.x_train, self.y_train)
 
             os.mkdir(str(self.model_name))
-            self.path = os.getcwd() + '/' + self.model_name + '/'
+            self.path = os.getcwd() + '/' + self.model_name
             if save_model:
                 model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
@@ -51,24 +51,26 @@ class Model:
             self.model_name = str(self.model_file)[0:-4]
             self.path = os.getcwd() + '/' + self.model_name
 
-    def point_estimate(self, x_test, y_test, run_metrics=False, save_preds=False, make_plots=False):
+    def point_estimate(self, x_test, y_test, save_preds=False, make_plots=False):
+
+        folder = '/point_estimates/'
 
         if self.model_file is not None:
             self.model = joblib.load(self.path + '/' + self.model_file)
 
-        self.y_preds = self.model.predict(x_test)
+        self.preds = self.model.predict(x_test)
 
         if save_preds:
-            if os.path.isdir(self.model_name + '/point_estimates'):
+            if os.path.isdir(self.path + folder):
                 print('Previously saved point estimates have been overwritten')
             else:
-                os.mkdir(self.model_name + '/point_estimates')
-            np.save(self.path + '/point_estimates/' + 'point_estimates.npy', self.y_preds)
+                os.mkdir(self.path + folder)
+            np.save(self.path + folder + 'point_estimates.npy', self.preds)
 
         if make_plots:
-            self.plot_scatter(y_test=y_test, y_pred=self.y_preds)
+            self.plot_scatter(y_test=y_test, y_pred=self.preds)
 
-        return self.y_preds
+        return self.preds
 
     def posterior(self, x_test, y_test, save_pdfs=False, make_plots=False):
 
@@ -97,34 +99,35 @@ class Model:
                 sample_pdf.extend(values[tree][sample_leafs[tree]])
             self.pdfs[sample].extend(sample_pdf)
 
+        folder = '/posteriors/'
+
         if save_pdfs:
-            if os.path.isdir(self.model_name + '/posterior'):
+            if os.path.isdir(self.path + folder):
                 print('Previously saved posteriors have been overwritten')
             else:
-                os.mkdir(self.model_name + '/posterior')
+                os.mkdir(self.path + folder)
             for sample in np.arange(y_test.shape[0]):
                 sample_pdf = np.array(self.pdfs[sample])
-                f = h5py.File(self.path + '/posterior/' + str(sample) + ".h5", "w")
+                f = h5py.File(self.path + folder + str(sample) + ".h5", "w")
                 f.create_dataset('data', data=sample_pdf)
 
         if make_plots:
-            #self.plot_posterior(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
-            self.plot_corner(y_test=y_test, y_pred=self.y_preds, pdfs=self.pdfs)
+            if y_test.shape[1] > 2:
+                self.plot_corner(y_test=y_test, y_pred=self.preds, pdfs=self.pdfs)
+            else:
+                self.plot_posterior(y_test=y_test, y_pred=self.preds, pdfs=self.pdfs)
 
         return self.pdfs
 
     def validate(self, y_test, save_validation=False, make_plots=False):
         return validate(y_test=y_test, make_plots=make_plots, save_validation=save_validation,
-                        pdfs=self.pdfs, path=self.path, model_name=self.model_name)
+                        pdfs=self.pdfs, path=self.path)
 
     def plot_scatter(self, y_test, y_pred):
-        return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path,
-                            model_name=self.model_name)
+        return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
 
     def plot_posterior(self, y_test, y_pred, pdfs):
-        return plot_posterior(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features,
-                              path=self.path, model_name=self.model_name)
+        return plot_posterior(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features, path=self.path)
 
     def plot_corner(self, y_test, y_pred, pdfs):
-        return plot_corner(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features,
-                              path=self.path, model_name=self.model_name)
+        return plot_corner(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features, path=self.path)

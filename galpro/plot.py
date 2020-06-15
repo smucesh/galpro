@@ -4,15 +4,18 @@ import seaborn as sns
 import pandas as pd
 import os
 
+sns.set_style('white')
+sns.set_style('ticks')
 
-def plot_scatter(y_test, y_pred, target_features, path, model_name):
-    sns.set_style('white')
-    sns.set_style("ticks")
 
-    if os.path.isdir(model_name + '/point_estimates/plots'):
+def plot_scatter(y_test, y_pred, target_features, path):
+
+    folder = '/point_estimates/plots/'
+
+    if os.path.isdir(path + folder):
         print('Previously saved scatter plots have been overwritten')
     else:
-        os.mkdir(model_name + '/point_estimates/plots')
+        os.mkdir(path + folder)
 
     no_features = y_test.shape[1]
     for feature in range(no_features):
@@ -24,27 +27,26 @@ def plot_scatter(y_test, y_pred, target_features, path, model_name):
         plt.ylim([min_, max_])
         plt.xlabel(target_features[feature])
         plt.ylabel('$' + target_features[feature][1:-1] + '_{ML}$')
-        plt.savefig(path + '/point_estimates/plots/' + target_features[feature][1:-1] + '_scatter.png',
-                    bbox_inches='tight', dpi=600)
+        plt.savefig(path + folder + str(feature) + '_scatter.png', bbox_inches='tight', dpi=600)
 
 
-def plot_posterior(y_test, y_pred, pdfs, target_features, path, model_name):
-    sns.set_style('white')
-    sns.set_style("ticks")
+def plot_posterior(y_test, y_pred, pdfs, target_features, path):
 
-    if os.path.isdir(model_name + '/posterior/plots'):
+    folder = '/posteriors/plots/'
+
+    if os.path.isdir(path + folder):
         print('Previously saved posterior plots have been overwritten')
     else:
-        os.mkdir(model_name + '/posterior/plots')
+        os.mkdir(path + folder)
 
     no_samples = y_test.shape[0]
     for sample in np.arange(no_samples):
-        pdf = np.array(pdfs[sample])
+        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=target_features)
         g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
                           marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
         g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
         g.ax_joint.collections[0].set_alpha(0)
-        g.set_axis_labels(r'$' + target_features[0][1:-1] + '$', r'$' + target_features[1][1:-1] + '$')
+        g.set_axis_labels(target_features[0], target_features[1])
 
         true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10, linestyle='None',
                          label='True')
@@ -52,25 +54,25 @@ def plot_posterior(y_test, y_pred, pdfs, target_features, path, model_name):
                          label='Predicted')
 
         plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
-        plt.savefig(path + '/posterior/plots/' + 'joint_pdf_' + str(sample) + '.png',
-                    bbox_inches='tight', dpi=600)
+        plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
         plt.close()
 
 
-def plot_corner(y_test, y_pred, pdfs, target_features, path, model_name):
-    sns.set_style('white')
-    sns.set_style("ticks")
+def plot_corner(y_test, y_pred, pdfs, target_features, path):
 
-    if os.path.isdir(model_name + '/posterior/plots'):
-        print('Previously saved corner plots have been overwritten')
+    folder = '/posteriors/plots/'
+
+    if os.path.isdir(path + folder):
+        print('Previously saved posterior plots have been overwritten')
     else:
-        os.mkdir(model_name + '/posterior/plots')
+        os.mkdir(path + folder)
 
     no_samples = y_test.shape[0]
     for sample in np.arange(no_samples):
-        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=['$z$', '$M_{\star}$'])
+        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=target_features)
         g = sns.PairGrid(data=pdf, corner=True, despine=True)
+        #g = g.map_upper(sns.scatterplot)
         g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
         g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
-        plt.savefig(path + '/posterior/plots/' + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+        plt.savefig(path + folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
         plt.close()
