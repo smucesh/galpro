@@ -9,7 +9,7 @@ from galpro.plot import *
 
 class Model:
 
-    def __init__(self, x_train, y_train, params, input_features, target_features,
+    def __init__(self, x_train, y_train, params, target_features, input_features=None,
                  model_name=None, model_file=None, save_model=False):
 
         # Check if model_name and model_file are both given
@@ -51,10 +51,9 @@ class Model:
             self.model_name = str(self.model_file)[0:-4]
             self.path = os.getcwd() + '/' + self.model_name
 
-    def point_estimate(self, x_test, y_test, save_preds=False, make_plots=False):
+    def point_estimate(self, x_test, y_test=None, save_preds=False, make_plots=False):
 
         folder = '/point_estimates/'
-
         if self.model_file is not None:
             self.model = joblib.load(self.path + '/' + self.model_file)
 
@@ -68,11 +67,14 @@ class Model:
             np.save(self.path + folder + 'point_estimates.npy', self.preds)
 
         if make_plots:
-            self.plot_scatter(y_test=y_test, y_pred=self.preds)
+            if y_test is not None:
+                self.plot_scatter(y_test=y_test, y_pred=self.preds)
+            else:
+                print('Scatter plots cannot be made as y_test is not available for comparison')
 
         return self.preds
 
-    def posterior(self, x_test, y_test, save_pdfs=False, make_plots=False):
+    def posterior(self, x_test, y_test=None, save_pdfs=False, make_plots=False):
 
         if self.model_file is not None:
             self.model = joblib.load(self.path + '/' + self.model_file)
@@ -100,22 +102,21 @@ class Model:
             self.pdfs[sample].extend(sample_pdf)
 
         folder = '/posteriors/'
-
         if save_pdfs:
             if os.path.isdir(self.path + folder):
                 print('Previously saved posteriors have been overwritten')
             else:
                 os.mkdir(self.path + folder)
-            for sample in np.arange(y_test.shape[0]):
+            for sample in np.arange(x_test.shape[0]):
                 sample_pdf = np.array(self.pdfs[sample])
                 f = h5py.File(self.path + folder + str(sample) + ".h5", "w")
                 f.create_dataset('data', data=sample_pdf)
 
         if make_plots:
-            if y_test.shape[1] > 2:
-                self.plot_corner(y_test=y_test, y_pred=self.preds, pdfs=self.pdfs)
+            if len(self.target_features) > 2:
+                self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
             else:
-                self.plot_posterior(y_test=y_test, y_pred=self.preds, pdfs=self.pdfs)
+                self.plot_posterior(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
 
         return self.pdfs
 
@@ -126,8 +127,8 @@ class Model:
     def plot_scatter(self, y_test, y_pred):
         return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
 
-    def plot_posterior(self, y_test, y_pred, pdfs):
-        return plot_posterior(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features, path=self.path)
+    def plot_posterior(self, pdfs, y_test=None, y_pred=None):
+        return plot_posterior(pdfs=pdfs, y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
 
-    def plot_corner(self, y_test, y_pred, pdfs):
-        return plot_corner(y_test=y_test, y_pred=y_pred, pdfs=pdfs, target_features=self.target_features, path=self.path)
+    def plot_corner(self, pdfs, y_test=None, y_pred=None):
+        return plot_corner(pdfs=pdfs, y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)

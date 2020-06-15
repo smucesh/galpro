@@ -11,7 +11,6 @@ sns.set_style('ticks')
 def plot_scatter(y_test, y_pred, target_features, path):
 
     folder = '/point_estimates/plots/'
-
     if os.path.isdir(path + folder):
         print('Previously saved scatter plots have been overwritten')
     else:
@@ -30,44 +29,55 @@ def plot_scatter(y_test, y_pred, target_features, path):
         plt.savefig(path + folder + str(feature) + '_scatter.png', bbox_inches='tight', dpi=600)
 
 
-def plot_posterior(y_test, y_pred, pdfs, target_features, path):
+def plot_posterior(pdfs, target_features, path, y_test=None, y_pred=None):
 
-    folder = '/posteriors/plots/'
+    # Load points estimates if they exists or create
+    y_pred, folder, no_samples, no_features = _check_preds(pdfs=pdfs, y_pred=y_pred, target_features=target_features, path=path)
 
-    if os.path.isdir(path + folder):
-        print('Previously saved posterior plots have been overwritten')
+    if y_test is not None:
+
+        for sample in np.arange(no_samples):
+            pdf = np.array(pdfs[sample])
+            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
+                              marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
+            g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
+            g.ax_joint.collections[0].set_alpha(0)
+            g.set_axis_labels(target_features[0], target_features[1])
+
+            true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10, linestyle='None',
+                             label='True')
+            predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10, linestyle='None',
+                             label='Predicted')
+
+            plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
+            plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+            plt.close()
+
     else:
-        os.mkdir(path + folder)
 
-    no_samples = y_test.shape[0]
-    for sample in np.arange(no_samples):
-        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=target_features)
-        g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
-                          marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
-        g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
-        g.ax_joint.collections[0].set_alpha(0)
-        g.set_axis_labels(target_features[0], target_features[1])
+        for sample in np.arange(no_samples):
+            pdf = np.array(pdfs[sample])
+            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
+                              marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
+            g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
+            g.ax_joint.collections[0].set_alpha(0)
+            g.set_axis_labels(target_features[0], target_features[1])
 
-        true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10, linestyle='None',
-                         label='True')
-        predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10, linestyle='None',
-                         label='Predicted')
+            predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10,
+                                  linestyle='None',
+                                  label='Predicted')
 
-        plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
-        plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
-        plt.close()
+            plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
+            plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+            plt.close()
 
 
-def plot_corner(y_test, y_pred, pdfs, target_features, path):
+def plot_corner(pdfs, target_features, path, y_test=None, y_pred=None):
 
-    folder = '/posteriors/plots/'
+    # Load points estimates if they exists or create
+    y_pred, folder, no_samples, no_features = _check_preds(pdfs=pdfs, target_features=target_features, path=path)
 
-    if os.path.isdir(path + folder):
-        print('Previously saved posterior plots have been overwritten')
-    else:
-        os.mkdir(path + folder)
-
-    no_samples = y_test.shape[0]
+    no_samples = len(pdfs)
     for sample in np.arange(no_samples):
         pdf = pd.DataFrame(np.array(pdfs[sample]), columns=target_features)
         g = sns.PairGrid(data=pdf, corner=True, despine=True)
@@ -76,3 +86,27 @@ def plot_corner(y_test, y_pred, pdfs, target_features, path):
         g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
         plt.savefig(path + folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
         plt.close()
+
+
+def _check_preds(pdfs, y_pred, target_features, path):
+
+    no_samples, no_features = [len(pdfs), len(target_features)]
+    folder = '/point_estimates/'
+
+    if y_pred is None:
+        # Load point estimates if available
+        if os.path.isfile(path + folder + 'point_estimates.npy'):
+            y_pred = np.load(path + folder + 'point_estimates.npy')
+            print('Previously saved point estimates have been loaded')
+        else:
+            y_pred = np.empty((no_samples, no_features))
+            for sample in np.arange(no_samples):
+                y_pred[sample] = np.mean(np.array(pdfs[sample]), axis=0)
+
+    folder = '/posteriors/plots/'
+    if os.path.isdir(path + folder):
+        print('Previously saved posterior plots have been overwritten')
+    else:
+        os.mkdir(path + folder)
+
+    return y_pred, folder, no_samples, no_features
