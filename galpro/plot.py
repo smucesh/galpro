@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import os
+import statsmodels.api as sm
 
 sns.set_style('white')
 sns.set_style('ticks')
@@ -85,6 +86,31 @@ def plot_corner(pdfs, target_features, path, y_test=None, y_pred=None):
         g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
         g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
         plt.savefig(path + folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+        plt.close()
+
+
+def plot_pit(pit, path):
+
+    folder = '/validation/'
+    no_features = pit.shape[1]
+
+    for feature in np.arange(no_features):
+        qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
+        qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
+        plt.close()
+
+        ax1 = sns.distplot(pit[:, feature], bins=100, kde=False,
+                           hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+        ax2 = plt.twinx()
+        #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
+        ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
+        ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
+        ax1.set_xlabel('$Q_{theory}/PIT$')
+        ax1.set_ylabel('$N$')
+        ax2.set_ylabel('$Q_{data}$')
+        ax2.set_xlim([0, 1])
+        ax2.set_ylim([0, 1])
+        plt.savefig(path + folder + str(feature) +'_pit.png', bbox_inches='tight', dpi=600)
         plt.close()
 
 

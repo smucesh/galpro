@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 import os
+from galpro.plot import *
 
 
 def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
@@ -29,7 +30,7 @@ def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
     for feature in np.arange(no_features):
         for sample in np.arange(no_samples):
             pdf = np.array(pdfs[sample])
-            pits[sample] = np.sum(pdf[:, feature] <= y_test[sample, feature]) / pdf.shape[0]
+            pits[sample, feature] = np.sum(pdf[:, feature] <= y_test[sample, feature]) / pdf.shape[0]
 
         no_outliers = np.count_nonzero(pits[:, feature] == 0) + np.count_nonzero(pits[:, feature] == 1)
         marginal_outliers[feature] = (no_outliers / no_samples) * 100
@@ -97,6 +98,9 @@ def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
         np.save(path + folder + 'marginal_calibration.npy', marginal_calibration)
         np.save(path + folder + 'coppits.npy', coppits)
         np.save(path + folder + 'kendall_calibration.npy', kendall_calibration)
+
+    if make_plots:
+        return plot_pit(pit=pits, path=path)
 
     return pits, marginal_calibration, coppits, kendall_calibration
 
