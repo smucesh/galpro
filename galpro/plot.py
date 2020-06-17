@@ -5,37 +5,56 @@ import pandas as pd
 import os
 import statsmodels.api as sm
 
-sns.set_style('white')
-sns.set_style('ticks')
 
+class Plot:
 
-def plot_scatter(y_test, y_pred, target_features, path):
+    def __init__(self, target_features, path):
 
-    folder = '/point_estimates/plots/'
-    if os.path.isdir(path + folder):
-        print('Previously saved scatter plots have been overwritten')
-    else:
-        os.mkdir(path + folder)
+        # Initialise arguments
+        self.target_features = target_features
+        self.path = path
+        self.no_features = len(target_features)
+        self.point_estimate_folder = '/point_estimates/plots/'
+        self.posterior_folder = '/posteriors/plots/'
+        self.validation_folder = '/validation/plots/'
 
-    no_features = y_test.shape[1]
-    for feature in range(no_features):
-        min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
-        sns.scatterplot(x=y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
-                        alpha=0.6, marker='.')
-        plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
-        plt.xlim([min_, max_])
-        plt.ylim([min_, max_])
-        plt.xlabel(target_features[feature])
-        plt.ylabel('$' + target_features[feature][1:-1] + '_{ML}$')
-        plt.savefig(path + folder + str(feature) + '_scatter.png', bbox_inches='tight', dpi=600)
+        # Set seaborn plot settings
+        sns.set_style('white')
+        sns.set_style('ticks')
 
+    def plot_scatter(self, y_test, y_pred):
 
-def plot_posterior(pdfs, target_features, path, y_test=None, y_pred=None):
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.point_estimate_folder)
 
-    # Load points estimates if they exists or create
-    y_pred, folder, no_samples, no_features = _check_preds(pdfs=pdfs, y_pred=y_pred, target_features=target_features, path=path)
+        no_features = y_test.shape[1]
+        for feature in np.arange(no_features):
+            min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
+            sns.scatterplot(x=y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
+                            alpha=0.6, marker='.')
+            plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
+            plt.xlim([min_, max_])
+            plt.ylim([min_, max_])
+            plt.xlabel(self.target_features[feature])
+            plt.ylabel('$' + self.target_features[feature][1:-1] + '_{ML}$')
+            plt.savefig(self.path + self.point_estimate_folder + str(feature) + '_scatter.png', bbox_inches='tight',
+                        dpi=600)
 
-    if y_test is not None:
+    def plot_posterior(self, pdfs, y_test=None, y_pred=None):
+
+        max_features = 2
+        if len(self.target_features) != max_features:
+            print('Number of target features is greater than 2. As a result, plot_posterior cannot run.'
+                  'Please run plot_corner instead.')
+            exit()
+
+        # Load points estimates if they exists
+        y_pred = self._check_preds(pdfs=pdfs, y_pred=y_pred)
+
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.posterior_folder)
+
+        no_samples, no_features = [len(pdfs), len(self.target_features)]
 
         for sample in np.arange(no_samples):
             pdf = np.array(pdfs[sample])
@@ -43,142 +62,134 @@ def plot_posterior(pdfs, target_features, path, y_test=None, y_pred=None):
                               marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
             g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
             g.ax_joint.collections[0].set_alpha(0)
-            g.set_axis_labels(target_features[0], target_features[1])
-
-            true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10, linestyle='None',
-                             label='True')
-            predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10, linestyle='None',
-                             label='Predicted')
-
-            plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
-            plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
-            plt.close()
-
-    else:
-
-        for sample in np.arange(no_samples):
-            pdf = np.array(pdfs[sample])
-            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
-                              marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
-            g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
-            g.ax_joint.collections[0].set_alpha(0)
-            g.set_axis_labels(target_features[0], target_features[1])
-
+            g.set_axis_labels(self.target_features[0], self.target_features[1])
             predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10,
-                                  linestyle='None',
-                                  label='Predicted')
+                                  linestyle='None', label='Predicted')
 
-            plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
-            plt.savefig(path + folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
+            if y_test is not None:
+                true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10,
+                                 linestyle='None', label='True')
+                plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
+            else:
+                plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
+
+            plt.savefig(self.path + self.posterior_folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight',
+                        dpi=600)
             plt.close()
 
+    def plot_corner(self, pdfs, y_test=None, y_pred=None):
 
-def plot_corner(pdfs, target_features, path, y_test=None, y_pred=None):
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.posterior_folder)
 
-    # Load points estimates if they exists or create
-    y_pred, folder, no_samples, no_features = _check_preds(pdfs=pdfs, target_features=target_features, path=path)
+        no_samples = len(pdfs)
+        for sample in np.arange(no_samples):
+            pdf = pd.DataFrame(np.array(pdfs[sample]), columns=self.target_features)
+            g = sns.PairGrid(data=pdf, corner=True, despine=True)
+            #g = g.map_upper(sns.scatterplot)
+            g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
+            g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
+            plt.savefig(self.path + self.posterior_folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight',
+                        dpi=600)
+            plt.close()
 
-    no_samples = len(pdfs)
-    for sample in np.arange(no_samples):
-        pdf = pd.DataFrame(np.array(pdfs[sample]), columns=target_features)
-        g = sns.PairGrid(data=pdf, corner=True, despine=True)
-        #g = g.map_upper(sns.scatterplot)
-        g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
-        g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
-        plt.savefig(path + folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight', dpi=600)
-        plt.close()
+    def plot_pit(self, pit):
 
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.validation_folder)
 
-def plot_pit(pit, path):
+        for feature in np.arange(self.no_features):
+            qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
+            qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
+            plt.close()
 
-    folder = '/validation/'
-    no_features = pit.shape[1]
+            ax1 = sns.distplot(pit[:, feature], bins=100, kde=False,
+                               hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+            ax2 = plt.twinx()
+            #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
+            ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
+            ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
+            ax1.set_xlabel('$Q_{theory}/PIT$')
+            ax1.set_ylabel('$N$')
+            ax2.set_ylabel('$Q_{data}$')
+            ax2.set_xlim([0, 1])
+            ax2.set_ylim([0, 1])
+            plt.savefig(self.path + self.validation_folder + str(feature) + '_pit.png', bbox_inches='tight', dpi=600)
+            plt.close()
 
-    for feature in np.arange(no_features):
-        qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
+    def plot_coppit(self, coppit):
+
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.validation_folder)
+
+        qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
         plt.close()
 
-        ax1 = sns.distplot(pit[:, feature], bins=100, kde=False,
-                           hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+        ax1 = sns.distplot(coppit, bins=100, kde=False, hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
         ax2 = plt.twinx()
         #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
         ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
         ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
-        ax1.set_xlabel('$Q_{theory}/PIT$')
+        ax1.set_xlabel('$Q_{theory}/copPIT$')
         ax1.set_ylabel('$N$')
         ax2.set_ylabel('$Q_{data}$')
         ax2.set_xlim([0, 1])
         ax2.set_ylim([0, 1])
-        plt.savefig(path + folder + str(feature) +'_pit.png', bbox_inches='tight', dpi=600)
+        plt.savefig(self.path + self.validation_folder + 'coppit.png', bbox_inches='tight', dpi=600)
         plt.close()
 
+    def plot_marginal_calibration(self, marginal_calibration, y_test):
 
-def plot_coppit(coppit, path):
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.validation_folder)
 
-    folder = '/validation/'
-    qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
-    qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
-    plt.close()
+        for feature in np.arange(self.no_features):
+            min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
+            sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
+            plt.axhline(0, color='black', linewidth=1, linestyle='--')
+            plt.xlabel(self.target_features[feature])
+            plt.ylabel('$F_{I} - G_{I}$')
+            plt.savefig(self.path + self.validation_folder + str(feature) + '_marginal_calibration.png',
+                        bbox_inches='tight', dpi=600)
+            plt.close()
 
-    ax1 = sns.distplot(coppit, bins=100, kde=False,
-                        hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
-    ax2 = plt.twinx()
-    #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
-    ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
-    ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
-    ax1.set_xlabel('$Q_{theory}/copPIT$')
-    ax1.set_ylabel('$N$')
-    ax2.set_ylabel('$Q_{data}$')
-    ax2.set_xlim([0, 1])
-    ax2.set_ylim([0, 1])
-    plt.savefig(path + folder + 'coppit.png', bbox_inches='tight', dpi=600)
-    plt.close()
+    def plot_kendall_calibration(self, kendall_calibration):
 
+        # Check if folder already exists
+        self._check_folder_exists(folder=self.validation_folder)
 
-def plot_marginal_calibration(marginal_calibration, y_test, target_features, path):
-
-    folder = '/validation/'
-    no_features = y_test.shape[1]
-    for feature in np.arange(no_features):
-        min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
-        sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
+        sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
-        plt.xlabel(target_features[feature])
-        plt.ylabel('$F_{I} - G_{I}$')
-        plt.savefig(path + folder + str(feature) +'_marginal_calibration.png', bbox_inches='tight', dpi=600)
+        plt.xlabel('$w$')
+        plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
+        plt.savefig(self.path + self.validation_folder + 'kendall_calibration.png', bbox_inches='tight', dpi=600)
         plt.close()
 
+    def _check_preds(self, pdfs, y_pred):
 
-def plot_kendall_calibration(kendall_calibration, path):
-    folder = '/validation/'
-    sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
-    plt.axhline(0, color='black', linewidth=1, linestyle='--')
-    plt.xlabel('$w$')
-    plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
-    plt.savefig(path + folder + 'kendall_calibration.png', bbox_inches='tight', dpi=600)
-    plt.close()
+        no_samples, no_features = [len(pdfs), self.no_features]
 
+        if y_pred is None:
+            # Load point estimates if available
+            if os.path.isfile(self.path + self.point_estimate_folder + 'point_estimates.npy'):
+                y_pred = np.load(self.path + self.point_estimate_folder + 'point_estimates.npy')
+                print('Previously saved point estimates have been loaded')
+            else:
+                y_pred = np.empty((no_samples, no_features))
+                for sample in np.arange(no_samples):
+                    y_pred[sample] = np.mean(np.array(pdfs[sample]), axis=0)
 
-def _check_preds(pdfs, y_pred, target_features, path):
+        return y_pred
 
-    no_samples, no_features = [len(pdfs), len(target_features)]
-    folder = '/point_estimates/'
+    def _check_folder_exists(self, folder):
 
-    if y_pred is None:
-        # Load point estimates if available
-        if os.path.isfile(path + folder + 'point_estimates.npy'):
-            y_pred = np.load(path + folder + 'point_estimates.npy')
-            print('Previously saved point estimates have been loaded')
+        if os.path.isdir(self.path + folder):
+            if folder == self.point_estimate_folder:
+                print('Previously saved scatter plots have been overwritten')
+            elif folder == self.posterior_folder:
+                print('Previously saved posterior plots have been overwritten')
+            elif folder == self.validation_folder:
+                print('Previously saved validation plots have been overwritten')
         else:
-            y_pred = np.empty((no_samples, no_features))
-            for sample in np.arange(no_samples):
-                y_pred[sample] = np.mean(np.array(pdfs[sample]), axis=0)
-
-    folder = '/posteriors/plots/'
-    if os.path.isdir(path + folder):
-        print('Previously saved posterior plots have been overwritten')
-    else:
-        os.mkdir(path + folder)
-
-    return y_pred, folder, no_samples, no_features
+            os.mkdir(self.path + folder)

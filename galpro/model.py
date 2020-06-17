@@ -1,11 +1,10 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
 import h5py
 import os
-from galpro.validation import validate
-from galpro.plot import *
+from galpro.validation import Validation
+from galpro.plot import Plot
 
 
 class Model:
@@ -16,16 +15,22 @@ class Model:
         # Check if model_name and model_file are both given
         if model_file and model_name is not None:
             print('Please either specify a model_name if training a new model or a model_file '
-                  'if loading a trained model')
+                  'if loading a trained model but not both.')
             exit()
 
         # Check if model_name exists
         if os.path.isdir(str(model_name)):
             print('The model with the specified name already exists. '
-                  'Please choose a different model_name or delete the model directory.')
+                  'Please choose a different model_name, delete the model directory or load the model'
+                  'by using model_file argument.')
             exit()
 
-        # Initialise
+        # Check if model_file exists
+        if not os.path.isfile(model_file[0:-4] + '/' + model_file):
+            print('The model_file does not exist.')
+            exit()
+
+        # Initialise arguments
         self.x_train = x_train
         self.y_train = y_train
         self.params = params
@@ -37,29 +42,39 @@ class Model:
         self.preds = None
         self.pdfs = None
 
+        # If no model file is given, train a new model with the given model_name
         if self.model_file is None:
+
+            # Create model directory
+            os.mkdir(str(self.model_name))
+            self.path = os.getcwd() + '/' + self.model_name
+
             # Train model
             self.model = RandomForestRegressor(**self.params)
             self.model.fit(self.x_train, self.y_train)
 
-            os.mkdir(str(self.model_name))
-            self.path = os.getcwd() + '/' + self.model_name
+            # Save model to directory
             if save_model:
                 model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
 
+        # If model file is given, get the model name and create path to model directory and load the model
         else:
             self.model_name = str(self.model_file)[0:-4]
             self.path = os.getcwd() + '/' + self.model_name
+            self.model = joblib.load(self.path + '/' + self.model_file)
+
+        # Initialise classes
+        self.plot = Plot(target_features=self.target_features, path=self.path)
+        self.validation = Validation(target_features=self.target_features, path=self.path)
 
     def point_estimate(self, x_test, y_test=None, save_preds=False, make_plots=False):
 
-        folder = '/point_estimates/'
-        if self.model_file is not None:
-            self.model = joblib.load(self.path + '/' + self.model_file)
-
+        # Use the model to make predictions on new objects
         self.preds = self.model.predict(x_test)
 
+        folder = '/point_estimates/'
+        # Save predictions as numpy arrays
         if save_preds:
             if os.path.isdir(self.path + folder):
                 print('Previously saved point estimates have been overwritten')
@@ -67,6 +82,7 @@ class Model:
                 os.mkdir(self.path + folder)
             np.save(self.path + folder + 'point_estimates.npy', self.preds)
 
+        # Save plots
         if make_plots:
             if y_test is not None:
                 self.plot_scatter(y_test=y_test, y_pred=self.preds)
@@ -121,15 +137,30 @@ class Model:
 
         return self.pdfs
 
-    def validate(self, y_test, save_validation=False, make_plots=False):
-        return validate(y_test=y_test, make_plots=make_plots, save_validation=save_validation,
-                        pdfs=self.pdfs, path=self.path, target_features=self.target_features)
+    # External Classes functions
+    def validate(self, y_test, pdfs=None, save_validation=False, make_plots=False):
+        return self.validation.validate(y_test=y_test, pdfs=pdfs, make_plots=make_plots, save_validation=save_validation)
 
     def plot_scatter(self, y_test, y_pred):
-        return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
+        return self.plot.plot_scatter(y_test=y_test, y_pred=y_pred)
 
     def plot_posterior(self, pdfs, y_test=None, y_pred=None):
-        return plot_posterior(pdfs=pdfs, y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
+        return self.plot.plot_posterior(pdfs=pdfs, y_test=y_test, y_pred=y_pred)
 
     def plot_corner(self, pdfs, y_test=None, y_pred=None):
-        return plot_corner(pdfs=pdfs, y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)
+        return self.plot.plot_corner(pdfs=pdfs, y_test=y_test, y_pred=y_pred)
+
+    def plot_pit(self, pit):
+        return self.plot.plot_pit(pit=pit)
+
+    def plot_coppit(self, coppit):
+        return self.plot.plot_coppit(coppit=coppit)
+
+    def plot_marginal_calibration(self, marginal_calibration, y_test):
+        return self.plot.plot_marginal_calibration(marginal_calibration=marginal_calibration, y_test=y_test)
+
+    def plot_kendall_calibration(self, kendall_calibration):
+        return self.plot.plot_kendall_calibration(kendall_calibration=kendall_calibration)
+
+
+
