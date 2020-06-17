@@ -123,7 +123,7 @@ class Model:
 
     def validate(self, y_test, save_validation=False, make_plots=False):
         return validate(y_test=y_test, make_plots=make_plots, save_validation=save_validation,
-                        pdfs=self.pdfs, path=self.path)
+                        pdfs=self.pdfs, path=self.path, target_features=self.target_features)
 
     def plot_scatter(self, y_test, y_pred):
         return plot_scatter(y_test=y_test, y_pred=y_pred, target_features=self.target_features, path=self.path)

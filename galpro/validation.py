@@ -4,7 +4,7 @@ import os
 from galpro.plot import *
 
 
-def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
+def validate(y_test, pdfs, path, target_features, save_validation=False, make_plots=False):
 
     no_samples, no_features = [y_test.shape[0], y_test.shape[1]]
     no_points = 100
@@ -100,7 +100,10 @@ def validate(y_test, pdfs, path, save_validation=False, make_plots=False):
         np.save(path + folder + 'kendall_calibration.npy', kendall_calibration)
 
     if make_plots:
-        return plot_pit(pit=pits, path=path)
+        return plot_pit(pit=pits, path=path), plot_coppit(coppit=coppits, path=path), \
+               plot_marginal_calibration(marginal_calibration=marginal_calibration, y_test=y_test,
+                                         target_features=target_features, path=path), \
+               plot_kendall_calibration(kendall_calibration=kendall_calibration, path=path)
 
     return pits, marginal_calibration, coppits, kendall_calibration
 

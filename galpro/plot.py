@@ -114,6 +114,52 @@ def plot_pit(pit, path):
         plt.close()
 
 
+def plot_coppit(coppit, path):
+
+    folder = '/validation/'
+    qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
+    qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
+    plt.close()
+
+    ax1 = sns.distplot(coppit, bins=100, kde=False,
+                        hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+    ax2 = plt.twinx()
+    #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
+    ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
+    ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
+    ax1.set_xlabel('$Q_{theory}/copPIT$')
+    ax1.set_ylabel('$N$')
+    ax2.set_ylabel('$Q_{data}$')
+    ax2.set_xlim([0, 1])
+    ax2.set_ylim([0, 1])
+    plt.savefig(path + folder + 'coppit.png', bbox_inches='tight', dpi=600)
+    plt.close()
+
+
+def plot_marginal_calibration(marginal_calibration, y_test, target_features, path):
+
+    folder = '/validation/'
+    no_features = y_test.shape[1]
+    for feature in np.arange(no_features):
+        min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
+        sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
+        plt.axhline(0, color='black', linewidth=1, linestyle='--')
+        plt.xlabel(target_features[feature])
+        plt.ylabel('$F_{I} - G_{I}$')
+        plt.savefig(path + folder + str(feature) +'_marginal_calibration.png', bbox_inches='tight', dpi=600)
+        plt.close()
+
+
+def plot_kendall_calibration(kendall_calibration, path):
+    folder = '/validation/'
+    sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
+    plt.axhline(0, color='black', linewidth=1, linestyle='--')
+    plt.xlabel('$w$')
+    plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
+    plt.savefig(path + folder + 'kendall_calibration.png', bbox_inches='tight', dpi=600)
+    plt.close()
+
+
 def _check_preds(pdfs, y_pred, target_features, path):
 
     no_samples, no_features = [len(pdfs), len(target_features)]
