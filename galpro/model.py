@@ -41,6 +41,7 @@ class Model:
         self.save_model = save_model
         self.preds = None
         self.pdfs = None
+        self.metrics = None
 
         # If no model file is given, train a new model with the given model_name
         if self.model_file is None:
@@ -133,6 +134,7 @@ class Model:
             if len(self.target_features) > 2:
                 self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
             else:
+                #self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
                 self.plot_posterior(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
 
         return self.pdfs

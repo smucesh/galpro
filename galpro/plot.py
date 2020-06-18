@@ -1,9 +1,12 @@
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import os
 import statsmodels.api as sm
+
+from galpro.metrics import Metrics
 
 
 class Plot:
@@ -18,27 +21,38 @@ class Plot:
         self.posterior_folder = '/posteriors/plots/'
         self.validation_folder = '/validation/plots/'
 
-        # Set seaborn plot settings
+        # Initialise class
+        self.metrics = Metrics()
+
+        # Set seaborn and matplotlib plot settings
         sns.set_style('white')
         sns.set_style('ticks')
+        mpl.rcParams['font.family'] = "Helvetica"
+        mpl.rcParams['mathtext.fontset'] = 'dejavuserif'
+        mpl.rcParams['font.size'] = 12
 
     def plot_scatter(self, y_test, y_pred):
 
         # Check if folder already exists
         self._check_folder_exists(folder=self.point_estimate_folder)
 
-        no_features = y_test.shape[1]
-        for feature in np.arange(no_features):
+        # Get metrics
+        metrics = self.metrics.pred_metrics(y_test=y_test, y_pred=y_pred)
+
+        for feature in np.arange(self.no_features):
             min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
             sns.scatterplot(x=y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
                             alpha=0.6, marker='.')
             plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
+            plt.plot([], [], ' ', label=f'RMSE: {metrics[feature]}')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
             plt.xlabel(self.target_features[feature])
             plt.ylabel('$' + self.target_features[feature][1:-1] + '_{ML}$')
+            plt.legend(edgecolor='None', loc='lower right')
             plt.savefig(self.path + self.point_estimate_folder + str(feature) + '_scatter.png', bbox_inches='tight',
                         dpi=600)
+            plt.close()
 
     def plot_posterior(self, pdfs, y_test=None, y_pred=None):
 
@@ -54,7 +68,7 @@ class Plot:
         # Check if folder already exists
         self._check_folder_exists(folder=self.posterior_folder)
 
-        no_samples, no_features = [len(pdfs), len(self.target_features)]
+        no_samples = len(pdfs)
 
         for sample in np.arange(no_samples):
             pdf = np.array(pdfs[sample])
@@ -82,13 +96,28 @@ class Plot:
         # Check if folder already exists
         self._check_folder_exists(folder=self.posterior_folder)
 
+        # Get quantiles
+        quantiles = self.metrics.quantiles(pdfs=pdfs)
+
         no_samples = len(pdfs)
         for sample in np.arange(no_samples):
             pdf = pd.DataFrame(np.array(pdfs[sample]), columns=self.target_features)
-            g = sns.PairGrid(data=pdf, corner=True, despine=True)
+            g = sns.PairGrid(data=pdf, corner=True)
             #g = g.map_upper(sns.scatterplot)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
+
+            for feature in np.arange(self.no_features):
+                g.axes[feature, feature].set_title(f'{self.target_features[feature]}'
+                                                   f'$= {quantiles[feature, sample, 1]:.2f}'
+                                                   f'^{{+{quantiles[feature, sample, 2]-quantiles[feature, sample, 1]:.2f}}}'
+                                                   f'_{{-{quantiles[feature, sample, 1]-quantiles[feature, sample, 0]:.2f}}}$',
+                                                   fontsize=10)
+                g.axes[feature, feature].axvline(quantiles[feature, sample, 0], color='black', linestyle='--', linewidth=1)
+                g.axes[feature, feature].axvline(quantiles[feature, sample, 1], color='black', linestyle='--', linewidth=1)
+                g.axes[feature, feature].axvline(quantiles[feature, sample, 2], color='black', linestyle='--', linewidth=1)
+
+            sns.despine(top=False, left=False, right=False, bottom=False)
             plt.savefig(self.path + self.posterior_folder + 'corner_plot_' + str(sample) + '.png', bbox_inches='tight',
                         dpi=600)
             plt.close()
@@ -97,6 +126,9 @@ class Plot:
 
         # Check if folder already exists
         self._check_folder_exists(folder=self.validation_folder)
+
+        # Get marginal pdf metrics
+        outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=pit, no_features=2)
 
         for feature in np.arange(self.no_features):
             qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
@@ -109,11 +141,17 @@ class Plot:
             #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
             ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
             ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
+            plt.plot([], [], ' ', label=f'Outliers: {outliers[feature]:.2f}%')
+            plt.plot([], [], ' ', label=f'KLD: {kld[feature]:.2f}')
+            plt.plot([], [], ' ', label=f'KST: {kst[feature]:.2f}')
+            plt.plot([], [], ' ', label=f'CvM: {cvm[feature]:.2f}')
+
             ax1.set_xlabel('$Q_{theory}/PIT$')
             ax1.set_ylabel('$N$')
             ax2.set_ylabel('$Q_{data}$')
             ax2.set_xlim([0, 1])
             ax2.set_ylim([0, 1])
+            plt.legend(framealpha=0, edgecolor='None', loc='lower right')
             plt.savefig(self.path + self.validation_folder + str(feature) + '_pit.png', bbox_inches='tight', dpi=600)
             plt.close()
 
@@ -121,6 +159,9 @@ class Plot:
 
         # Check if folder already exists
         self._check_folder_exists(folder=self.validation_folder)
+
+        # Get full pdf metrics
+        outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=coppit, no_features=1)
 
         qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
@@ -131,11 +172,17 @@ class Plot:
         #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
         ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
         ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
+        plt.plot([], [], ' ', label=f'Outliers: {outliers[0]:.2f}%')
+        plt.plot([], [], ' ', label=f'KLD: {kld[0]:.2f}')
+        plt.plot([], [], ' ', label=f'KST: {kst[0]:.2f}')
+        plt.plot([], [], ' ', label=f'CvM: {cvm[0]:.2f}')
+
         ax1.set_xlabel('$Q_{theory}/copPIT$')
         ax1.set_ylabel('$N$')
         ax2.set_ylabel('$Q_{data}$')
         ax2.set_xlim([0, 1])
         ax2.set_ylim([0, 1])
+        plt.legend(framealpha=0, edgecolor='None', loc='lower right')
         plt.savefig(self.path + self.validation_folder + 'coppit.png', bbox_inches='tight', dpi=600)
         plt.close()
 
@@ -148,8 +195,9 @@ class Plot:
             min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
             sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
+            plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
             plt.xlabel(self.target_features[feature])
-            plt.ylabel('$F_{I} - G_{I}$')
+            plt.ylabel(r'$\hat{F}_{I} - \tilde{G}_{I}$')
             plt.savefig(self.path + self.validation_folder + str(feature) + '_marginal_calibration.png',
                         bbox_inches='tight', dpi=600)
             plt.close()
@@ -161,6 +209,7 @@ class Plot:
 
         sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
+        plt.ylim([-np.max(kendall_calibration), np.max(kendall_calibration)])
         plt.xlabel('$w$')
         plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
         plt.savefig(self.path + self.validation_folder + 'kendall_calibration.png', bbox_inches='tight', dpi=600)

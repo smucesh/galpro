@@ -42,9 +42,6 @@ class Validation:
                 pdf = np.array(pdfs[sample])
                 pits[sample, feature] = np.sum(pdf[:, feature] <= y_test[sample, feature]) / pdf.shape[0]
 
-            no_outliers = np.count_nonzero(pits[:, feature] == 0) + np.count_nonzero(pits[:, feature] == 1)
-            marginal_outliers[feature] = (no_outliers / no_samples) * 100
-
         # Marginal calibration
         marginal_calibration = np.empty((self.no_points, self.no_features))
 
