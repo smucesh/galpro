@@ -10,25 +10,7 @@ from galpro.plot import Plot
 class Model:
 
     def __init__(self, x_train, y_train, params, target_features, input_features=None,
-                 model_name=None, model_file=None, save_model=False):
-
-        # Check if model_name and model_file are both given
-        if model_file and model_name is not None:
-            print('Please either specify a model_name if training a new model or a model_file '
-                  'if loading a trained model but not both.')
-            exit()
-
-        # Check if model_name exists
-        if os.path.isdir(str(model_name)):
-            print('The model with the specified name already exists. '
-                  'Please choose a different model_name, delete the model directory or load the model'
-                  'by using model_file argument.')
-            exit()
-
-        # Check if model_file exists
-        if not os.path.isfile(model_file[0:-4] + '/' + model_file):
-            print('The model_file does not exist.')
-            exit()
+                 model_name=None, save_model=False):
 
         # Initialise arguments
         self.x_train = x_train
@@ -37,33 +19,43 @@ class Model:
         self.input_features = input_features
         self.target_features = target_features
         self.model_name = model_name
-        self.model_file = model_file
         self.save_model = save_model
         self.preds = None
         self.pdfs = None
         self.metrics = None
+        self.path = os.getcwd() + '/' + str(model_name) + '/'
 
-        # If no model file is given, train a new model with the given model_name
-        if self.model_file is None:
+        # Check if model_name exists
+        if os.path.isdir(self.path):
+            print('The model name already exists.')
 
-            # Create model directory
+            # Check if the model is saved
+            if os.path.isfile(self.path + str(self.model_name) + '.sav'):
+
+                # Load the model
+                self.model = joblib.load(self.path + str(self.model_name) + '.sav')
+                print('The model file has been found and it has been loaded.')
+
+            else:
+                print('The model file has not been found.'
+                      'Please choose a different model_name or delete the model directory.')
+                exit()
+
+        else:
+            # Create the model directory
             os.mkdir(str(self.model_name))
-            self.path = os.getcwd() + '/' + self.model_name
 
             # Train model
             self.model = RandomForestRegressor(**self.params)
             self.model.fit(self.x_train, self.y_train)
+            print('Training the model...')
 
             # Save model to directory
             if save_model:
                 model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
-
-        # If model file is given, get the model name and create path to model directory and load the model
-        else:
-            self.model_name = str(self.model_file)[0:-4]
-            self.path = os.getcwd() + '/' + self.model_name
-            self.model = joblib.load(self.path + '/' + self.model_file)
+                print('The model has been saved.')
+                exit()
 
         # Initialise classes
         self.plot = Plot(target_features=self.target_features, path=self.path)
