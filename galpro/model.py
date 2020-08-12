@@ -25,16 +25,20 @@ class Model:
         self.metrics = None
         self.path = os.getcwd() + '/' + str(model_name) + '/'
 
+        # Initialise classes
+        self.plot = Plot(target_features=self.target_features, path=self.path)
+        self.validation = Validation(target_features=self.target_features, path=self.path)
+
         # Check if model_name exists
         if os.path.isdir(self.path):
-            print('The model name already exists.')
+            print('The model name already exists. Checking for model file...')
 
             # Check if the model is saved
             if os.path.isfile(self.path + str(self.model_name) + '.sav'):
 
                 # Load the model
                 self.model = joblib.load(self.path + str(self.model_name) + '.sav')
-                print('The model file has been found and it has been loaded.')
+                print('The model file has been found and has been loaded.')
 
             else:
                 print('The model file has not been found.'
@@ -55,24 +59,20 @@ class Model:
                 model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
                 print('The model has been saved.')
-                exit()
-
-        # Initialise classes
-        self.plot = Plot(target_features=self.target_features, path=self.path)
-        self.validation = Validation(target_features=self.target_features, path=self.path)
 
     def point_estimate(self, x_test, y_test=None, save_preds=False, make_plots=False):
 
         # Use the model to make predictions on new objects
         self.preds = self.model.predict(x_test)
 
-        folder = '/point_estimates/'
+        folder = 'point_estimates/'
         # Save predictions as numpy arrays
         if save_preds:
             if os.path.isdir(self.path + folder):
-                print('Previously saved point estimates have been overwritten')
+                print('Previously saved point estimates have been overwritten.')
             else:
                 os.mkdir(self.path + folder)
+                print('Point estimates have been saved.')
             np.save(self.path + folder + 'point_estimates.npy', self.preds)
 
         # Save plots
@@ -80,14 +80,11 @@ class Model:
             if y_test is not None:
                 self.plot_scatter(y_test=y_test, y_pred=self.preds)
             else:
-                print('Scatter plots cannot be made as y_test is not available for comparison')
+                print('Scatter plots cannot be made as y_test is not available for comparison.')
 
         return self.preds
 
     def posterior(self, x_test, y_test=None, save_pdfs=False, make_plots=False):
-
-        if self.model_file is not None:
-            self.model = joblib.load(self.path + '/' + self.model_file)
 
         # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
         # associated with training samples.
@@ -111,12 +108,13 @@ class Model:
                 sample_pdf.extend(values[tree][sample_leafs[tree]])
             self.pdfs[sample].extend(sample_pdf)
 
-        folder = '/posteriors/'
+        folder = 'posteriors/'
         if save_pdfs:
             if os.path.isdir(self.path + folder):
-                print('Previously saved posteriors have been overwritten')
+                print('Previously saved posteriors have been overwritten.')
             else:
                 os.mkdir(self.path + folder)
+                print('Saving posteriors...')
             for sample in np.arange(x_test.shape[0]):
                 sample_pdf = np.array(self.pdfs[sample])
                 f = h5py.File(self.path + folder + str(sample) + ".h5", "w")
@@ -126,7 +124,6 @@ class Model:
             if len(self.target_features) > 2:
                 self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
             else:
-                #self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
                 self.plot_posterior(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
 
         return self.pdfs
