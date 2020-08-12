@@ -5,7 +5,6 @@ import seaborn as sns
 import pandas as pd
 import os
 import statsmodels.api as sm
-
 from galpro.metrics import Metrics
 
 
@@ -17,9 +16,9 @@ class Plot:
         self.target_features = target_features
         self.path = path
         self.no_features = len(target_features)
-        self.point_estimate_folder = '/point_estimates/plots/'
-        self.posterior_folder = '/posteriors/plots/'
-        self.validation_folder = '/validation/plots/'
+        self.point_estimate_folder = 'point_estimates/plots/'
+        self.posterior_folder = 'posteriors/plots/'
+        self.validation_folder = 'validation/plots/'
 
         # Initialise class
         self.metrics = Metrics()
@@ -40,16 +39,16 @@ class Plot:
         metrics = self.metrics.pred_metrics(y_test=y_test, y_pred=y_pred)
 
         for feature in np.arange(self.no_features):
-            min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
+            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
             sns.scatterplot(x=y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
                             alpha=0.6, marker='.')
             plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
-            plt.plot([], [], ' ', label=f'RMSE: {metrics[feature]}')
+            plt.plot([], [], ' ', label=f'$RMSE: {metrics[feature]}$')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
             plt.xlabel(self.target_features[feature])
             plt.ylabel('$' + self.target_features[feature][1:-1] + '_{ML}$')
-            plt.legend(edgecolor='None', loc='lower right')
+            plt.legend(edgecolor='None', loc='lower right', framealpha=0)
             plt.savefig(self.path + self.point_estimate_folder + str(feature) + '_scatter.png', bbox_inches='tight',
                         dpi=600)
             plt.close()
@@ -72,21 +71,27 @@ class Plot:
 
         for sample in np.arange(no_samples):
             pdf = np.array(pdfs[sample])
-            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0, color="darkorchid", n_levels=10,
-                              marginal_kws={'lw': 2, 'color': 'darkorchid', 'shade': True, 'alpha': 0.8})
+            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0.1, color="darkorchid", n_levels=10, ratio=4,
+                              marginal_kws={'lw': 3, 'color': 'darkorchid', 'shade': True, 'alpha': 0.6})
             g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
             g.ax_joint.collections[0].set_alpha(0)
             g.set_axis_labels(self.target_features[0], self.target_features[1])
+
+            g.ax_marg_x.axvline(y_pred[sample, 0], color='white', linestyle='--', linewidth='2')
+            g.ax_marg_y.axhline(y_pred[sample, 1], color='white', linestyle='--', linewidth='2')
             predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10,
-                                  linestyle='None', label='Predicted')
+                                  linestyle='None', label='$Predicted$')
 
             if y_test is not None:
+                g.ax_marg_x.axvline(y_test[sample, 0], color='gold', linestyle='--', linewidth='2')
+                g.ax_marg_y.axhline(y_test[sample, 1], color='gold', linestyle='--', linewidth='2')
                 true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10,
-                                 linestyle='None', label='True')
+                                 linestyle='None', label='$True$')
                 plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
             else:
                 plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
 
+            sns.despine(top=False, left=False, right=False, bottom=False)
             plt.savefig(self.path + self.posterior_folder + 'joint_pdf_' + str(sample) + '.png', bbox_inches='tight',
                         dpi=600)
             plt.close()
@@ -136,22 +141,31 @@ class Plot:
             plt.close()
 
             ax1 = sns.distplot(pit[:, feature], bins=100, kde=False,
-                               hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+                               hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
+                                         'alpha': 0.5})
             ax2 = plt.twinx()
             #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
             ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
             ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
-            plt.plot([], [], ' ', label=f'Outliers: {outliers[feature]:.2f}%')
-            plt.plot([], [], ' ', label=f'KLD: {kld[feature]:.2f}')
-            plt.plot([], [], ' ', label=f'KST: {kst[feature]:.2f}')
-            plt.plot([], [], ' ', label=f'CvM: {cvm[feature]:.2f}')
+            plt.plot([], [], ' ', label=f'$Outliers: {outliers[feature]:.2f}\%$')
+            plt.plot([], [], ' ', label=f'$KLD: {kld[feature]:.3f}$')
+            plt.plot([], [], ' ', label=f'$KST: {kst[feature]:.3f}$')
+            plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
 
             ax1.set_xlabel('$Q_{theory}/PIT$')
             ax1.set_ylabel('$N$')
             ax2.set_ylabel('$Q_{data}$')
             ax2.set_xlim([0, 1])
             ax2.set_ylim([0, 1])
-            plt.legend(framealpha=0, edgecolor='None', loc='lower right')
+
+            leg = plt.legend(framealpha=0, edgecolor='None', loc='lower right')
+            hp = leg._legend_box.get_children()[1]
+            for vp in hp.get_children():
+                for row in vp.get_children():
+                    row.set_width(100)
+                    row.mode = "expand"
+                    row.align = "right"
+
             plt.savefig(self.path + self.validation_folder + str(feature) + '_pit.png', bbox_inches='tight', dpi=600)
             plt.close()
 
@@ -167,22 +181,33 @@ class Plot:
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
         plt.close()
 
-        ax1 = sns.distplot(coppit, bins=100, kde=False, hist_kws={'color': 'slategrey', 'edgecolor': 'None', 'alpha': 0.5})
+        ax1 = sns.distplot(coppit, bins=100, kde=False,
+                           hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
+                                     'alpha': 0.5}
+                           )
         ax2 = plt.twinx()
         #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
         ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
         ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
-        plt.plot([], [], ' ', label=f'Outliers: {outliers[0]:.2f}%')
-        plt.plot([], [], ' ', label=f'KLD: {kld[0]:.2f}')
-        plt.plot([], [], ' ', label=f'KST: {kst[0]:.2f}')
-        plt.plot([], [], ' ', label=f'CvM: {cvm[0]:.2f}')
+        plt.plot([], [], ' ', label=f'$Outliers: {outliers[0]:.2f}\%$')
+        plt.plot([], [], ' ', label=f'$KLD: {kld[0]:.3f}$')
+        plt.plot([], [], ' ', label=f'$KST: {kst[0]:.3f}$')
+        plt.plot([], [], ' ', label=f'$CvM: {cvm[0]:.3f}$')
 
         ax1.set_xlabel('$Q_{theory}/copPIT$')
         ax1.set_ylabel('$N$')
         ax2.set_ylabel('$Q_{data}$')
         ax2.set_xlim([0, 1])
         ax2.set_ylim([0, 1])
-        plt.legend(framealpha=0, edgecolor='None', loc='lower right')
+
+        leg = plt.legend(framealpha=0, edgecolor='None', loc='lower right')
+        hp = leg._legend_box.get_children()[1]
+        for vp in hp.get_children():
+            for row in vp.get_children():
+                row.set_width(100)
+                row.mode = "expand"
+                row.align = "right"
+
         plt.savefig(self.path + self.validation_folder + 'coppit.png', bbox_inches='tight', dpi=600)
         plt.close()
 
@@ -192,7 +217,7 @@ class Plot:
         self._check_folder_exists(folder=self.validation_folder)
 
         for feature in np.arange(self.no_features):
-            min_, max_ = [np.min(y_test[:, feature]), np.max(y_test[:, feature])]
+            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
             sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
             plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
@@ -223,7 +248,7 @@ class Plot:
             # Load point estimates if available
             if os.path.isfile(self.path + self.point_estimate_folder + 'point_estimates.npy'):
                 y_pred = np.load(self.path + self.point_estimate_folder + 'point_estimates.npy')
-                print('Previously saved point estimates have been loaded')
+                print('Previously saved point estimates have been loaded.')
             else:
                 y_pred = np.empty((no_samples, no_features))
                 for sample in np.arange(no_samples):
@@ -235,10 +260,10 @@ class Plot:
 
         if os.path.isdir(self.path + folder):
             if folder == self.point_estimate_folder:
-                print('Previously saved scatter plots have been overwritten')
+                print('Previously saved scatter plots have been overwritten.')
             elif folder == self.posterior_folder:
-                print('Previously saved posterior plots have been overwritten')
+                print('Previously saved posterior plots have been overwritten.')
             elif folder == self.validation_folder:
-                print('Previously saved validation plots have been overwritten')
+                print('Previously saved validation plots have been overwritten.')
         else:
             os.mkdir(self.path + folder)

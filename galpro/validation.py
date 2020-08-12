@@ -19,8 +19,8 @@ class Validation:
 
         no_samples = y_test.shape[0]
 
+        folder = 'posteriors/'
         # Check if posterior() has been run
-        folder = '/posteriors/'
         if pdfs is None:
             # If not then try to load any saved posteriors
             pdfs = []
@@ -28,9 +28,10 @@ class Validation:
                 for sample in np.arange(no_samples):
                     pdf = h5py.File(self.path + folder + str(sample) + ".h5", "r")
                     pdfs.append(pdf['data'][:])
+                print('Loaded saved posteriors.')
             else:
                 print('No posteriors have been found. Please run Model.posterior()'
-                      'to generate posteriors and then run validate() or pass in the pdfs.')
+                      'to generate posteriors and then run validate(), or alternatively pass in the pdfs.')
                 exit()
 
         # Probabilistic calibration
@@ -47,7 +48,7 @@ class Validation:
 
         for feature in np.arange(self.no_features):
             count = 0
-            min_, max_ = [np.int(np.min(y_test[:, feature])), np.int(np.max(y_test[:, feature]))]
+            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
 
             for point in np.linspace(min_, max_, self.no_points):
                 sum_ = np.zeros(no_samples)
@@ -65,7 +66,7 @@ class Validation:
         pred_cdf_full = [[] for i in np.arange(no_samples)]
         true_cdf_full = []
         coppits = np.empty(no_samples)
-        template_pred, template_true = self._create_templates()
+        template_pred, template_true, template_same = self._create_templates()
 
         for sample in np.arange(no_samples):
             pdf = np.array(pdfs[sample])
@@ -76,7 +77,9 @@ class Validation:
                 # If <= is used, a large number of point will have near 0 probability, as a result, there will
                 # be a peak at 0.
                 # -1 insures, the point in consideration does not count when determining cdf.
-                pred_cdf_full[sample].append(np.sum(eval(template_pred)) / (no_preds - 1))
+                same_preds = np.sum(eval(template_same))
+                pred_cdf_full[sample].append(np.sum(eval(template_pred)) / (no_preds - same_preds))
+                #pred_cdf_full[sample].append(np.sum(eval(template_pred)) / (no_preds - 1))
 
             true_cdf_full.append(np.sum(eval(template_true)) / no_preds)
             coppits[sample] = np.sum(pred_cdf_full[sample] <= true_cdf_full[sample]) / no_preds
@@ -95,11 +98,12 @@ class Validation:
             kendall_calibration[count] = kendall_func_point - true_cdf_point
             count += 1
 
-        folder = '/validation/'
+        folder = 'validation/'
         if save_validation:
             if os.path.isdir(self.path + folder):
-                print('Previously saved validation has been overwritten')
+                print('Previously saved validation has been overwritten.')
             else:
+                print('Validation has been saved.')
                 os.mkdir(self.path + folder)
             np.save(self.path + folder + 'pits.npy', pits)
             np.save(self.path + folder + 'marginal_calibration.npy', marginal_calibration)
@@ -117,15 +121,19 @@ class Validation:
     def _create_templates(self):
 
         template = []
+        template_same = []
         for feature in np.arange(self.no_features):
 
             if feature != (self.no_features - 1):
                 template.append('(pdf[:,' + str(feature) + '] < pdf[pred,' + str(feature) + ']) & ')
+                template_same.append('(pdf[:,' + str(feature) + '] == pdf[pred,' + str(feature) + ']) & ')
             else:
                 template.append('(pdf[:,' + str(feature) + '] < pdf[pred,' + str(feature) + '])')
+                template_same.append('(pdf[:,' + str(feature) + '] == pdf[pred,' + str(feature) + '])')
 
         template_pred = ''.join(template)
+        template_same = ''.join(template_same)
         template_true = template_pred.replace('pdf[pred', 'y_test[sample')
         template_true = template_true.replace('<', '<=')
 
-        return template_pred, template_true
+        return template_pred, template_true, template_same

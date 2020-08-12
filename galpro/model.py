@@ -52,7 +52,7 @@ class Model:
             # Train model
             self.model = RandomForestRegressor(**self.params)
             self.model.fit(self.x_train, self.y_train)
-            print('Training the model...')
+            print('Training the model.')
 
             # Save model to directory
             if save_model:
@@ -114,7 +114,7 @@ class Model:
                 print('Previously saved posteriors have been overwritten.')
             else:
                 os.mkdir(self.path + folder)
-                print('Saving posteriors...')
+                print('Saving posteriors.')
             for sample in np.arange(x_test.shape[0]):
                 sample_pdf = np.array(self.pdfs[sample])
                 f = h5py.File(self.path + folder + str(sample) + ".h5", "w")
