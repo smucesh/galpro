@@ -132,3 +132,5 @@ dmypy.json
 /galpro/model/
 /galpro/test.py
 /.idea
+.DS_Store
+
