@@ -9,21 +9,22 @@ from galpro.plot import Plot
 
 class Model:
 
-    def __init__(self, x_train, y_train, params, target_features, input_features=None,
-                 model_name=None, save_model=False):
+    def __init__(self, x_train, y_train, params, target_features, model_name):
 
         # Initialise arguments
         self.x_train = x_train
         self.y_train = y_train
         self.params = params
-        self.input_features = input_features
         self.target_features = target_features
         self.model_name = model_name
-        self.save_model = save_model
         self.preds = None
         self.pdfs = None
-        self.metrics = None
+
+        # Creating directory paths
         self.path = os.getcwd() + '/' + str(model_name) + '/'
+        self.point_estimate_folder = 'point_estimates/'
+        self.posterior_folder = 'posteriors/'
+        self.validation_folder = 'validation/'
 
         # Initialise classes
         self.plot = Plot(target_features=self.target_features, path=self.path)
@@ -31,60 +32,52 @@ class Model:
 
         # Check if model_name exists
         if os.path.isdir(self.path):
-            print('The model name already exists. Checking for model file...')
+            print('Model exists.')
 
-            # Check if the model is saved
-            if os.path.isfile(self.path + str(self.model_name) + '.sav'):
-
-                # Load the model
-                self.model = joblib.load(self.path + str(self.model_name) + '.sav')
-                print('The model file has been found and has been loaded.')
-
-            else:
-                print('The model file has not been found.'
-                      'Please choose a different model_name or delete the model directory.')
-                exit()
+            # Load the model
+            self.model = joblib.load(self.path + str(self.model_name) + '.sav')
+            print('Loaded model.')
 
         else:
             # Create the model directory
-            os.mkdir(str(self.model_name))
+            os.mkdir(self.path)
+            os.mkdir(self.path + self.point_estimate_folder)
+            os.mkdir(self.path + self.posterior_folder)
+            os.mkdir(self.path + self.validation_folder)
+            os.mkdir(self.path + self.point_estimate_folder + 'plots/')
+            os.mkdir(self.path + self.posterior_folder + 'plots/')
+            os.mkdir(self.path + self.validation_folder + 'plots/')
 
             # Train model
             self.model = RandomForestRegressor(**self.params)
             self.model.fit(self.x_train, self.y_train)
-            print('Training the model.')
+            print('Trained model.')
 
             # Save model to directory
-            if save_model:
-                model_file = self.model_name + '.sav'
-                joblib.dump(self.model, self.path + model_file)
-                print('The model has been saved.')
+            model_file = self.model_name + '.sav'
+            joblib.dump(self.model, self.path + model_file)
+            print('Saved model.')
 
-    def point_estimate(self, x_test, y_test=None, save_preds=False, make_plots=False):
+    def point_estimate(self, x_test, y_test=None, make_plots=False):
 
         # Use the model to make predictions on new objects
         self.preds = self.model.predict(x_test)
 
-        folder = 'point_estimates/'
         # Save predictions as numpy arrays
-        if save_preds:
-            if os.path.isdir(self.path + folder):
-                print('Previously saved point estimates have been overwritten.')
-            else:
-                os.mkdir(self.path + folder)
-                print('Point estimates have been saved.')
-            np.save(self.path + folder + 'point_estimates.npy', self.preds)
+        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', self.preds)
+        print('Saved point estimates. Any previously saved point estimates have been overwritten.')
 
         # Save plots
         if make_plots:
             if y_test is not None:
                 self.plot_scatter(y_test=y_test, y_pred=self.preds)
+                print('Saved scatter plots.')
             else:
-                print('Scatter plots cannot be made as y_test is not available for comparison.')
+                print('Cannot create scatter plots as y_test is not available for comparison.')
 
         return self.preds
 
-    def posterior(self, x_test, y_test=None, save_pdfs=False, make_plots=False):
+    def posterior(self, x_test, y_test=None, make_plots=False):
 
         # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
         # associated with training samples.
@@ -100,25 +93,21 @@ class Model:
             for tree in np.arange(self.model.n_estimators):
                 values[tree][leafs[sample, tree]].append(list(self.y_train[sample]))
 
-        self.pdfs = [[] for sample in np.arange(np.shape(x_test)[0])]
         for sample in np.arange(np.shape(x_test)[0]):
             sample_leafs = self.model.apply(x_test[sample].reshape(1, self.model.n_features_))[0]
             sample_pdf = []
             for tree in np.arange(self.model.n_estimators):
                 sample_pdf.extend(values[tree][sample_leafs[tree]])
-            self.pdfs[sample].extend(sample_pdf)
+            f = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "w")
+            f.create_dataset('data', data=np.array(sample_pdf))
 
-        folder = 'posteriors/'
-        if save_pdfs:
-            if os.path.isdir(self.path + folder):
-                print('Previously saved posteriors have been overwritten.')
-            else:
-                os.mkdir(self.path + folder)
-                print('Saving posteriors.')
-            for sample in np.arange(x_test.shape[0]):
-                sample_pdf = np.array(self.pdfs[sample])
-                f = h5py.File(self.path + folder + str(sample) + ".h5", "w")
-                f.create_dataset('data', data=sample_pdf)
+        print('Saved posteriors. Any previously saved posteriors have been overwritten.')
+
+        # Load the saved posteriors
+        self.pdfs = []
+        for sample in np.arange(np.shape(x_test)[0]):
+            pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
+            self.pdfs.append(pdf['data'][:])
 
         if make_plots:
             if len(self.target_features) > 2:
@@ -129,8 +118,8 @@ class Model:
         return self.pdfs
 
     # External Classes functions
-    def validate(self, y_test, pdfs=None, save_validation=False, make_plots=False):
-        return self.validation.validate(y_test=y_test, pdfs=pdfs, make_plots=make_plots, save_validation=save_validation)
+    def validate(self, y_test, pdfs=None, make_plots=False):
+        return self.validation.validate(y_test=y_test, pdfs=pdfs, make_plots=make_plots)
 
     def plot_scatter(self, y_test, y_pred):
         return self.plot.plot_scatter(y_test=y_test, y_pred=y_pred)

@@ -19,7 +19,7 @@ class Metrics:
     def quantiles(self, pdfs):
 
         no_samples = len(pdfs)
-        no_features = 2
+        no_features = len(pdfs[0][0])
         quantiles = np.empty((no_features, no_samples, 3))
 
         for feature in np.arange(no_features):
