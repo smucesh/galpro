@@ -1,7 +1,7 @@
-import os
 import numpy as np
-import h5py
+
 from galpro.plot import Plot
+from galpro.utils import load_posteriors
 
 
 class Validation:
@@ -31,7 +31,7 @@ class Validation:
             exit()
 
         # Load posteriors
-        self.pdfs = self._load_posteriors()
+        self.pdfs = load_posteriors(path=self.path)
 
         # Run validation
         self.probabilistic_calibration()
@@ -146,18 +146,3 @@ class Validation:
         template_true = template_true.replace('<', '<=')
 
         return template_pred, template_true, template_same
-
-    def _load_posteriors(self):
-
-        no_samples = len(os.listdir(self.path + self.posterior_folder)) - 1
-
-        if no_samples != 0:
-            for sample in np.arange(no_samples):
-                pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
-                self.pdfs.append(pdf['data'][:])
-            print('Previously saved posteriors have been loaded.')
-        else:
-            print('No posteriors have been found. Run posterior() to generate posteriors.')
-            exit()
-
-        return self.pdfs

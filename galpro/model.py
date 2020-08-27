@@ -7,6 +7,7 @@ import h5py
 
 from galpro.validation import Validation
 from galpro.plot import Plot
+from galpro.utils import convert_1d_arrays
 from galpro.config import *
 
 
@@ -86,7 +87,7 @@ class Model:
 
         # Convert 1d arrays
         if len(self.target_features) == 1:
-            self.y_train, self.y_test = self._convert_1d_arrays(self.y_train, self.y_test)
+            self.y_train, self.y_test = convert_1d_arrays(self.y_train, self.y_test)
 
         # Initialise external classes
         self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
@@ -186,12 +187,3 @@ class Model:
 
     def plot_kendall_calibration(self):
         return self.plot.plot_kendall_calibration()
-
-    def _convert_1d_arrays(*arrays):
-        arrays = list(arrays[1:])
-        for i in np.arange(len(arrays)):
-            array = arrays[i]
-            if array is not None:
-                arrays[i] = arrays[i].reshape(-1, 1)
-
-        return arrays

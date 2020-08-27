@@ -1,12 +1,8 @@
-import os
-
-import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import statsmodels.api as sm
-import h5py
 
-from galpro.metrics import Metrics
+from galpro.utils import *
 from galpro.config import *
 
 
@@ -19,6 +15,7 @@ class Plot:
         self.target_features = target_features
         self.path = path
         self.no_features = len(target_features)
+        self.no_points = 100
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
@@ -29,9 +26,6 @@ class Plot:
         # Initialise plotting parameters
         set_plot_params()
 
-        # Initialise class
-        self.metrics = Metrics()
-
     def plot_scatter(self):
 
         # Check if y_test is available
@@ -40,13 +34,13 @@ class Plot:
             exit()
 
         # Load point estimates
-        y_pred = self._load_point_estimates()
+        y_pred = load_point_estimates(path=self.path)
 
         if self.no_features == 1:
-            y_pred = y_pred.reshape(-1, 1)
+            y_pred = convert_1d_arrays(y_pred)
 
         # Get metrics
-        metrics = self.metrics.pred_metrics(y_test=self.y_test, y_pred=y_pred)
+        metrics = get_pred_metrics(y_test=self.y_test, y_pred=y_pred)
 
         for feature in np.arange(self.no_features):
             min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
@@ -68,10 +62,10 @@ class Plot:
     def plot_marginal(self):
 
         # Load point estimates
-        y_pred = self._load_point_estimates()
+        y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = self._load_posteriors()
+        pdfs = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
             pdf = np.array(pdfs[sample])
@@ -95,10 +89,10 @@ class Plot:
     def plot_posterior(self):
 
         # Load point estimates
-        y_pred = self._load_point_estimates()
+        y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = self._load_posteriors()
+        pdfs = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
             pdf = np.array(pdfs[sample])
@@ -130,13 +124,13 @@ class Plot:
     def plot_corner(self):
 
         # Load point estimates
-        y_pred = self._load_point_estimates()
+        y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = self._load_posteriors()
+        pdfs = load_posteriors(path=self.path)
 
         # Get quantiles
-        quantiles = self.metrics.quantiles(pdfs=pdfs)
+        quantiles = get_quantiles(pdfs=pdfs)
 
         for sample in np.arange(self.no_samples):
             pdf = pd.DataFrame(np.array(pdfs[sample]), columns=self.target_features)
@@ -168,14 +162,14 @@ class Plot:
         pit = np.load(self.path + self.validation_folder + 'pits.npy')
 
         # Get marginal pdf metrics
-        outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=pit, no_features=self.no_features)
+        outliers, kld, kst, cvm = get_pdf_metrics(data=pit, no_features=self.no_features)
 
         for feature in np.arange(self.no_features):
             qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
             qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
             plt.close()
 
-            ax1 = sns.distplot(pit[:, feature], bins=100, kde=False,
+            ax1 = sns.distplot(pit[:, feature], bins=self.no_points, kde=False,
                                hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
                                          'alpha': 0.5})
             ax2 = plt.twinx()
@@ -210,13 +204,13 @@ class Plot:
         coppit = np.load(self.path + self.validation_folder + 'coppits.npy')
 
         # Get full pdf metrics
-        outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=coppit, no_features=1)
+        outliers, kld, kst, cvm = get_pdf_metrics(data=coppit, no_features=1)
 
         qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
         plt.close()
 
-        ax1 = sns.distplot(coppit, bins=100, kde=False,
+        ax1 = sns.distplot(coppit, bins=self.no_points, kde=False,
                            hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
                                      'alpha': 0.5}
                            )
@@ -252,7 +246,7 @@ class Plot:
 
         for feature in np.arange(self.no_features):
             min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
-            sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
+            sns.lineplot(x=np.linspace(min_, max_, self.no_points), y=marginal_calibration[:, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
             plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
             plt.xlabel(self.target_features[feature])
@@ -266,7 +260,7 @@ class Plot:
         # Load kendall calibration
         kendall_calibration = np.load(self.path + self.validation_folder + 'kendall_calibration.npy')
 
-        sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
+        sns.lineplot(x=np.linspace(0, 1, self.no_points), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
         plt.ylim([-np.max(kendall_calibration), np.max(kendall_calibration)])
         plt.xlabel('$w$')
@@ -274,31 +268,3 @@ class Plot:
         plt.savefig(self.path + self.validation_folder + 'plots/' + 'kendall_calibration.png',
                     bbox_inches='tight', dpi=300)
         plt.close()
-
-    def _load_point_estimates(self):
-
-        y_pred = []
-        if os.path.isfile(self.path + self.point_estimate_folder + 'point_estimates.npy'):
-            y_pred = np.load(self.path + self.point_estimate_folder + 'point_estimates.npy')
-            print('Previously saved point estimates have been loaded.')
-        else:
-            print('Point estimates have not been found. Please run point_estimates().')
-            exit()
-
-        return y_pred
-
-    def _load_posteriors(self):
-
-        pdfs = []
-        no_samples = len(os.listdir(self.path + self.posterior_folder)) - 1
-
-        if no_samples != 0:
-            for sample in np.arange(no_samples):
-                pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
-                pdfs.append(pdf['data'][:])
-            print('Previously saved posteriors have been loaded.')
-        else:
-            print('No posteriors have been found. Run posterior() to generate posteriors.')
-            exit()
-
-        return pdfs
