@@ -130,7 +130,10 @@ dmypy.json
 
 
 /galpro/model/
+/galpro/model_1d/
+/galpro/model_nd/
 /galpro/test.py
 /.idea
 .DS_Store
+/galpro/config.py
 

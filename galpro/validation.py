@@ -1,82 +1,96 @@
+import os
 import numpy as np
 import h5py
-import os
 from galpro.plot import Plot
 
 
 class Validation:
 
-    def __init__(self, target_features, path):
+    def __init__(self, y_test, target_features, path):
 
         # Initialise arguments
-        self.target_features = target_features
+        self.y_test = y_test
         self.path = path
+        self.target_features = target_features
+        self.pdfs = []
         self.no_features = len(target_features)
         self.no_points = 100
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
 
+        if self.y_test is not None:
+            self.no_samples = self.y_test.shape[0]
+
         # Initialise classes
-        self.plot = Plot(target_features=self.target_features, path=self.path)
+        self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
 
-    def validate(self, y_test, pdfs=None, make_plots=False):
+    def validate(self):
 
-        no_samples = y_test.shape[0]
+        if self.y_test is None:
+            print('Pass in y_test to run validation.')
+            exit()
 
-        # Check if posterior() has been run
-        if pdfs is None:
-            # If not then try to load any saved posteriors
-            pdfs = []
-            if os.path.isdir(self.path + self.posterior_folder):
-                for sample in np.arange(no_samples):
-                    pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
-                    pdfs.append(pdf['data'][:])
-                print('Loaded saved posteriors.')
-            else:
-                print('No posteriors have been found. Please run Model.posterior()'
-                      'to generate posteriors and then run validate(), or alternatively pass into the function.')
-                exit()
+        # Load posteriors
+        self.pdfs = self._load_posteriors()
 
-        # Probabilistic calibration
-        pits = np.empty((no_samples, self.no_features))
-        marginal_outliers = np.empty(self.no_features)
+        # Run validation
+        self.probabilistic_calibration()
+        self.marginal_calibration()
+        self.plot.plot_pit()
+        self.plot.plot_marginal_calibration()
+
+        if self.no_features > 1:
+            pred_cdf_full, true_cdf_full = self.probabilistic_copula_calibration()
+            self.kendall_calibration(pred_cdf_full, true_cdf_full)
+            self.plot.plot_coppit()
+            self.plot.plot_kendall_calibration()
+
+        print('Saved validation. Any previously saved validation has been overwritten.')
+
+    def probabilistic_calibration(self):
+
+        pits = np.empty((self.no_samples, self.no_features))
 
         for feature in np.arange(self.no_features):
-            for sample in np.arange(no_samples):
-                pdf = np.array(pdfs[sample])
-                pits[sample, feature] = np.sum(pdf[:, feature] <= y_test[sample, feature]) / pdf.shape[0]
+            for sample in np.arange(self.no_samples):
+                pdf = np.array(self.pdfs[sample])
+                pits[sample, feature] = np.sum(pdf[:, feature] <= self.y_test[sample, feature]) / pdf.shape[0]
 
         print('Completed probabilistic calibration.')
+        np.save(self.path + self.validation_folder + 'pits.npy', pits)
 
-        # Marginal calibration
+    def marginal_calibration(self):
+
         marginal_calibration = np.empty((self.no_points, self.no_features))
 
         for feature in np.arange(self.no_features):
             count = 0
-            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
+            min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
 
             for point in np.linspace(min_, max_, self.no_points):
-                sum_ = np.zeros(no_samples)
-                for sample in np.arange(no_samples):
-                    pdf = np.array(pdfs[sample])
+                sum_ = np.zeros(self.no_samples)
+                for sample in np.arange(self.no_samples):
+                    pdf = np.array(self.pdfs[sample])
                     sum_[sample] = np.sum(pdf[:, feature] <= point) / pdf.shape[0]
 
-                pred_cdf_marg_point = np.sum(sum_) / no_samples
-                true_cdf_marg_point = np.sum(y_test[:, feature] <= point) / no_samples
+                pred_cdf_marg_point = np.sum(sum_) / self.no_samples
+                true_cdf_marg_point = np.sum(self.y_test[:, feature] <= point) / self.no_samples
                 marginal_calibration[count, feature] = pred_cdf_marg_point - true_cdf_marg_point
                 count += 1
 
+        np.save(self.path + self.validation_folder + 'marginal_calibration.npy', marginal_calibration)
         print('Completed marginal calibration.')
 
-        # Probabilistic copula calibration
+    def probabilistic_copula_calibration(self):
+
         # Creating a list of list containing pred_cdf of each point in predictions
-        pred_cdf_full = [[] for i in np.arange(no_samples)]
+        pred_cdf_full = [[] for i in np.arange(self.no_samples)]
         true_cdf_full = []
-        coppits = np.empty(no_samples)
+        coppits = np.empty(self.no_samples)
         template_pred, template_true, template_same = self._create_templates()
 
-        for sample in np.arange(no_samples):
-            pdf = np.array(pdfs[sample])
+        for sample in np.arange(self.no_samples):
+            pdf = np.array(self.pdfs[sample])
             no_preds = pdf.shape[0]
 
             for pred in np.arange(no_preds):
@@ -86,44 +100,32 @@ class Validation:
                 # -1 insures, the point in consideration does not count when determining cdf.
                 same_preds = np.sum(eval(template_same))
                 pred_cdf_full[sample].append(np.sum(eval(template_pred)) / (no_preds - same_preds))
-                #pred_cdf_full[sample].append(np.sum(eval(template_pred)) / (no_preds - 1))
 
             true_cdf_full.append(np.sum(eval(template_true)) / no_preds)
             coppits[sample] = np.sum(pred_cdf_full[sample] <= true_cdf_full[sample]) / no_preds
 
+        np.save(self.path + self.validation_folder + 'coppits.npy', coppits)
         print('Completed probabilistic copula calibration')
 
-        # Kendall calibration
+        return pred_cdf_full, true_cdf_full
+
+    def kendall_calibration(self, pred_cdf_full, true_cdf_full):
+
         kendall_calibration = np.empty(self.no_points)
         count = 0
 
         for point in np.linspace(0, 1, self.no_points):
-            sum_ = np.zeros(no_samples)
-            for sample in np.arange(no_samples):
+            sum_ = np.zeros(self.no_samples)
+            for sample in np.arange(self.no_samples):
                 sum_[sample] = np.sum(pred_cdf_full[sample] <= point) / len(pred_cdf_full[sample])
 
-            kendall_func_point = np.sum(sum_) / no_samples
-            true_cdf_point = np.sum(true_cdf_full <= point) / no_samples
+            kendall_func_point = np.sum(sum_) / self.no_samples
+            true_cdf_point = np.sum(true_cdf_full <= point) / self.no_samples
             kendall_calibration[count] = kendall_func_point - true_cdf_point
             count += 1
 
-        print('Completed kendall calibration')
-
-        # Saving calibration
-        np.save(self.path + self.validation_folder + 'pits.npy', pits)
-        np.save(self.path + self.validation_folder + 'marginal_calibration.npy', marginal_calibration)
-        np.save(self.path + self.validation_folder + 'coppits.npy', coppits)
         np.save(self.path + self.validation_folder + 'kendall_calibration.npy', kendall_calibration)
-        print('Saved validation. Any previously saved validation has been overwritten.')
-
-        if make_plots:
-            self.plot.plot_pit(pit=pits)
-            self.plot.plot_coppit(coppit=coppits)
-            self.plot.plot_marginal_calibration(marginal_calibration=marginal_calibration, y_test=y_test)
-            self.plot.plot_kendall_calibration(kendall_calibration=kendall_calibration)
-            print('Saved validation plots. Any previously saved validation plots have been overwritten.')
-
-        return pits, marginal_calibration, coppits, kendall_calibration
+        print('Completed kendall calibration')
 
     def _create_templates(self):
 
@@ -140,7 +142,22 @@ class Validation:
 
         template_pred = ''.join(template)
         template_same = ''.join(template_same)
-        template_true = template_pred.replace('pdf[pred', 'y_test[sample')
+        template_true = template_pred.replace('pdf[pred', 'self.y_test[sample')
         template_true = template_true.replace('<', '<=')
 
         return template_pred, template_true, template_same
+
+    def _load_posteriors(self):
+
+        no_samples = len(os.listdir(self.path + self.posterior_folder)) - 1
+
+        if no_samples != 0:
+            for sample in np.arange(no_samples):
+                pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
+                self.pdfs.append(pdf['data'][:])
+            print('Previously saved posteriors have been loaded.')
+        else:
+            print('No posteriors have been found. Run posterior() to generate posteriors.')
+            exit()
+
+        return self.pdfs

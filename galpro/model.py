@@ -1,34 +1,60 @@
+import os
+
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 import h5py
-import os
+
 from galpro.validation import Validation
 from galpro.plot import Plot
+from galpro.config import *
 
 
 class Model:
+    """
+    Top-level class for training or loading a previously saved random forest model.
+    Uses the implementation of the random forest algorithm in the scikit-learn library.
 
-    def __init__(self, x_train, y_train, params, target_features, model_name):
+    Parameters
+    ----------
+    x_train: array_like
+        An array of input features of training galaxies with shape [n, x], where n is the number of galaxies and x is
+        the number of input features.
+
+    y_train: array_like
+        An array of target features of training galaxies with shape [n, y], where n in the number of galaxies and y is
+        the number of target features.
+
+    target_features: list
+        A list of variables of target features.
+
+    model_name: str
+        The subfolder into which all the information is stored. To train a new model, specify a unique name or to load a
+        previously trained model, specify its model name.
+
+    x_test: array_like, optional
+        An array of input features of testing galaxies with the same shape as x_train.
+
+    y_test: array_like, optional
+        An array of target features of testing galaxies with the same shape as y_train.
+    """
+
+    def __init__(self, x_train, y_train, target_features, model_name, x_test=None, y_test=None):
 
         # Initialise arguments
         self.x_train = x_train
         self.y_train = y_train
-        self.params = params
         self.target_features = target_features
         self.model_name = model_name
-        self.preds = None
-        self.pdfs = None
+        self.params = set_hyperparameters()
+        self.x_test = x_test
+        self.y_test = y_test
 
         # Creating directory paths
         self.path = os.getcwd() + '/' + str(model_name) + '/'
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
-
-        # Initialise classes
-        self.plot = Plot(target_features=self.target_features, path=self.path)
-        self.validation = Validation(target_features=self.target_features, path=self.path)
 
         # Check if model_name exists
         if os.path.isdir(self.path):
@@ -58,26 +84,48 @@ class Model:
             joblib.dump(self.model, self.path + model_file)
             print('Saved model.')
 
-    def point_estimate(self, x_test, y_test=None, make_plots=False):
+        # Convert 1d arrays
+        if len(self.target_features) == 1:
+            self.y_train, self.y_test = self._convert_1d_arrays(self.y_train, self.y_test)
+
+        # Initialise external classes
+        self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
+        self.validation = Validation(y_test=self.y_test, target_features=self.target_features, path=self.path)
+
+    def point_estimate(self, make_plots=False):
+        """
+        Make point predictions using the trained model.
+
+        Parameters
+        ----------
+        make_plots: bool, optional
+            Whether to make scatter plots or not.
+        """
+
+        if self.x_test is None:
+            print('Pass in x_test to make point predictions.')
+            exit()
 
         # Use the model to make predictions on new objects
-        self.preds = self.model.predict(x_test)
+        preds = self.model.predict(self.x_test)
 
         # Save predictions as numpy arrays
-        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', self.preds)
+        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', preds)
         print('Saved point estimates. Any previously saved point estimates have been overwritten.')
 
         # Save plots
         if make_plots:
-            if y_test is not None:
-                self.plot_scatter(y_test=y_test, y_pred=self.preds)
-                print('Saved scatter plots.')
-            else:
-                print('Cannot create scatter plots as y_test is not available for comparison.')
+            self.plot_scatter()
 
-        return self.preds
+    def posterior(self, make_plots=False):
+        """
+        Generate posteriors using the trained model.
 
-    def posterior(self, x_test, y_test=None, make_plots=False):
+        Parameters
+        ----------
+        make_plots: bool, optional
+            Whether to make posterior plots or not.
+        """
 
         # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
         # associated with training samples.
@@ -93,8 +141,8 @@ class Model:
             for tree in np.arange(self.model.n_estimators):
                 values[tree][leafs[sample, tree]].append(list(self.y_train[sample]))
 
-        for sample in np.arange(np.shape(x_test)[0]):
-            sample_leafs = self.model.apply(x_test[sample].reshape(1, self.model.n_features_))[0]
+        for sample in np.arange(np.shape(self.x_test)[0]):
+            sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
             sample_pdf = []
             for tree in np.arange(self.model.n_estimators):
                 sample_pdf.extend(values[tree][sample_leafs[tree]])
@@ -103,44 +151,47 @@ class Model:
 
         print('Saved posteriors. Any previously saved posteriors have been overwritten.')
 
-        # Load the saved posteriors
-        self.pdfs = []
-        for sample in np.arange(np.shape(x_test)[0]):
-            pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
-            self.pdfs.append(pdf['data'][:])
-
         if make_plots:
-            if len(self.target_features) > 2:
-                self.plot_corner(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
+            if len(self.target_features) < 2:
+                self.plot_marginal()
+            elif len(self.target_features) > 2:
+                self.plot_corner()
             else:
-                self.plot_posterior(pdfs=self.pdfs, y_test=y_test, y_pred=self.preds)
-
-        return self.pdfs
+                self.plot_posterior()
 
     # External Classes functions
-    def validate(self, y_test, pdfs=None, make_plots=False):
-        return self.validation.validate(y_test=y_test, pdfs=pdfs, make_plots=make_plots)
+    def validate(self):
+        return self.validation.validate()
 
-    def plot_scatter(self, y_test, y_pred):
-        return self.plot.plot_scatter(y_test=y_test, y_pred=y_pred)
+    def plot_scatter(self):
+        return self.plot.plot_scatter()
 
-    def plot_posterior(self, pdfs, y_test=None, y_pred=None):
-        return self.plot.plot_posterior(pdfs=pdfs, y_test=y_test, y_pred=y_pred)
+    def plot_marginal(self):
+        return self.plot.plot_marginal()
 
-    def plot_corner(self, pdfs, y_test=None, y_pred=None):
-        return self.plot.plot_corner(pdfs=pdfs, y_test=y_test, y_pred=y_pred)
+    def plot_posterior(self):
+        return self.plot.plot_posterior()
 
-    def plot_pit(self, pit):
-        return self.plot.plot_pit(pit=pit)
+    def plot_corner(self):
+        return self.plot.plot_corner()
 
-    def plot_coppit(self, coppit):
-        return self.plot.plot_coppit(coppit=coppit)
+    def plot_pit(self):
+        return self.plot.plot_pit()
 
-    def plot_marginal_calibration(self, marginal_calibration, y_test):
-        return self.plot.plot_marginal_calibration(marginal_calibration=marginal_calibration, y_test=y_test)
+    def plot_coppit(self):
+        return self.plot.plot_coppit()
 
-    def plot_kendall_calibration(self, kendall_calibration):
-        return self.plot.plot_kendall_calibration(kendall_calibration=kendall_calibration)
+    def plot_marginal_calibration(self):
+        return self.plot.plot_marginal_calibration()
 
+    def plot_kendall_calibration(self):
+        return self.plot.plot_kendall_calibration()
 
+    def _convert_1d_arrays(*arrays):
+        arrays = list(arrays[1:])
+        for i in np.arange(len(arrays)):
+            array = arrays[i]
+            if array is not None:
+                arrays[i] = arrays[i].reshape(-1, 1)
 
+        return arrays

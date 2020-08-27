@@ -1,18 +1,21 @@
-import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
 import os
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 import statsmodels.api as sm
+import h5py
+
 from galpro.metrics import Metrics
+from galpro.config import *
 
 
 class Plot:
 
-    def __init__(self, target_features, path):
+    def __init__(self, y_test, target_features, path):
 
         # Initialise arguments
+        self.y_test = y_test
         self.target_features = target_features
         self.path = path
         self.no_features = len(target_features)
@@ -20,24 +23,34 @@ class Plot:
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
 
+        if self.y_test is not None:
+            self.no_samples = self.y_test.shape[0]
+
+        # Initialise plotting parameters
+        set_plot_params()
+
         # Initialise class
         self.metrics = Metrics()
 
-        # Set seaborn and matplotlib plot settings
-        sns.set_style('white')
-        sns.set_style('ticks')
-        mpl.rcParams['font.family'] = "Helvetica"
-        mpl.rcParams['mathtext.fontset'] = 'dejavuserif'
-        mpl.rcParams['font.size'] = 12
+    def plot_scatter(self):
 
-    def plot_scatter(self, y_test, y_pred):
+        # Check if y_test is available
+        if self.y_test is None:
+            print('Pass in y_test to generate scatter plots.')
+            exit()
+
+        # Load point estimates
+        y_pred = self._load_point_estimates()
+
+        if self.no_features == 1:
+            y_pred = y_pred.reshape(-1, 1)
 
         # Get metrics
-        metrics = self.metrics.pred_metrics(y_test=y_test, y_pred=y_pred)
+        metrics = self.metrics.pred_metrics(y_test=self.y_test, y_pred=y_pred)
 
         for feature in np.arange(self.no_features):
-            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
-            sns.scatterplot(x=y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
+            min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
+            sns.scatterplot(x=self.y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
                             alpha=0.6, marker='.')
             plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
             plt.plot([], [], ' ', label=f'$RMSE: {metrics[feature]}$')
@@ -50,19 +63,44 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-    def plot_posterior(self, pdfs, y_test=None, y_pred=None):
+        print('Scatter plots have been saved.')
 
-        max_features = 2
-        if len(self.target_features) != max_features:
-            print('Number of target features is greater than 2. Please run plot_corner instead.')
-            exit()
+    def plot_marginal(self):
 
-        if y_pred is None:
-            # Load point estimates if they exist
-            y_pred = self._check_preds(pdfs=pdfs, y_pred=y_pred)
+        # Load point estimates
+        y_pred = self._load_point_estimates()
 
-        no_samples = len(pdfs)
-        for sample in np.arange(no_samples):
+        # Load posteriors
+        pdfs = self._load_posteriors()
+
+        for sample in np.arange(self.no_samples):
+            pdf = np.array(pdfs[sample])
+            sns.distplot(pdf, bins=10, kde=False, color="darkorchid",
+                         hist_kws={'histtype': 'stepfilled', 'color': 'darkorchid', 'edgecolor': 'darkorchid',
+                                   'alpha': 0.6})
+            plt.axvline(y_pred[sample], color='black', linestyle='--', linewidth='1', label='Predicted')
+
+            if self.y_test is not None:
+                plt.axvline(self.y_test[sample], color='gold', linestyle='--', linewidth='1', label='True')
+                plt.legend(framealpha=0, edgecolor='None', loc='upper left')
+            else:
+                plt.legend(framealpha=0, edgecolor='None', loc='upper left')
+
+            plt.xlabel(self.target_features[0])
+            plt.ylabel('$N$')
+            plt.savefig(self.path + self.posterior_folder + 'plots/' + 'marginal_pdf_' + str(sample) + '.png',
+                        bbox_inches='tight', dpi=300)
+            plt.close()
+
+    def plot_posterior(self):
+
+        # Load point estimates
+        y_pred = self._load_point_estimates()
+
+        # Load posteriors
+        pdfs = self._load_posteriors()
+
+        for sample in np.arange(self.no_samples):
             pdf = np.array(pdfs[sample])
             g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0.1, color="darkorchid", n_levels=10, ratio=4,
                               marginal_kws={'lw': 3, 'color': 'darkorchid', 'shade': True, 'alpha': 0.6})
@@ -75,10 +113,10 @@ class Plot:
             predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10,
                                   linestyle='None', label='$Predicted$')
 
-            if y_test is not None:
-                g.ax_marg_x.axvline(y_test[sample, 0], color='gold', linestyle='--', linewidth='2')
-                g.ax_marg_y.axhline(y_test[sample, 1], color='gold', linestyle='--', linewidth='2')
-                true, = plt.plot(y_test[sample, 0], y_test[sample, 1], color='gold', marker='*', markersize=10,
+            if self.y_test is not None:
+                g.ax_marg_x.axvline(self.y_test[sample, 0], color='gold', linestyle='--', linewidth='2')
+                g.ax_marg_y.axhline(self.y_test[sample, 1], color='gold', linestyle='--', linewidth='2')
+                true, = plt.plot(self.y_test[sample, 0], self.y_test[sample, 1], color='gold', marker='*', markersize=10,
                                  linestyle='None', label='$True$')
                 plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
             else:
@@ -89,16 +127,20 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-    def plot_corner(self, pdfs, y_test=None, y_pred=None):
+    def plot_corner(self):
+
+        # Load point estimates
+        y_pred = self._load_point_estimates()
+
+        # Load posteriors
+        pdfs = self._load_posteriors()
 
         # Get quantiles
         quantiles = self.metrics.quantiles(pdfs=pdfs)
 
-        no_samples = len(pdfs)
-        for sample in np.arange(no_samples):
+        for sample in np.arange(self.no_samples):
             pdf = pd.DataFrame(np.array(pdfs[sample]), columns=self.target_features)
             g = sns.PairGrid(data=pdf, corner=True)
-            #g = g.map_upper(sns.scatterplot)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
 
@@ -120,7 +162,10 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-    def plot_pit(self, pit):
+    def plot_pit(self):
+
+        # Load PITs
+        pit = np.load(self.path + self.validation_folder + 'pits.npy')
 
         # Get marginal pdf metrics
         outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=pit, no_features=self.no_features)
@@ -134,7 +179,6 @@ class Plot:
                                hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
                                          'alpha': 0.5})
             ax2 = plt.twinx()
-            #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
             ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
             ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
             plt.plot([], [], ' ', label=f'$Outliers: {outliers[feature]:.2f}\%$')
@@ -160,7 +204,10 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-    def plot_coppit(self, coppit):
+    def plot_coppit(self):
+
+        # Load copPITs
+        coppit = np.load(self.path + self.validation_folder + 'coppits.npy')
 
         # Get full pdf metrics
         outliers, kld, kst, cvm = self.metrics.pdf_metrics(data=coppit, no_features=1)
@@ -174,7 +221,6 @@ class Plot:
                                      'alpha': 0.5}
                            )
         ax2 = plt.twinx()
-        #ax2 = sns.scatterplot(x=qq_theory, y=qq_data)
         ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
         ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
         plt.plot([], [], ' ', label=f'$Outliers: {outliers[0]:.2f}\%$')
@@ -199,10 +245,13 @@ class Plot:
         plt.savefig(self.path + self.validation_folder + 'plots/' + 'coppit.png', bbox_inches='tight', dpi=300)
         plt.close()
 
-    def plot_marginal_calibration(self, marginal_calibration, y_test):
+    def plot_marginal_calibration(self):
+
+        # Load marginal calibration
+        marginal_calibration = np.load(self.path + self.validation_folder + 'marginal_calibration.npy')
 
         for feature in np.arange(self.no_features):
-            min_, max_ = [np.floor(np.min(y_test[:, feature])), np.ceil(np.max(y_test[:, feature]))]
+            min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
             sns.lineplot(x=np.linspace(min_, max_, 100), y=marginal_calibration[:, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
             plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
@@ -212,7 +261,10 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-    def plot_kendall_calibration(self, kendall_calibration):
+    def plot_kendall_calibration(self):
+
+        # Load kendall calibration
+        kendall_calibration = np.load(self.path + self.validation_folder + 'kendall_calibration.npy')
 
         sns.lineplot(x=np.linspace(0, 1, 100), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
@@ -223,18 +275,30 @@ class Plot:
                     bbox_inches='tight', dpi=300)
         plt.close()
 
-    def _check_preds(self, pdfs, y_pred):
+    def _load_point_estimates(self):
 
-        no_samples, no_features = [len(pdfs), self.no_features]
-
-        # Load point estimates if available
+        y_pred = []
         if os.path.isfile(self.path + self.point_estimate_folder + 'point_estimates.npy'):
             y_pred = np.load(self.path + self.point_estimate_folder + 'point_estimates.npy')
             print('Previously saved point estimates have been loaded.')
         else:
-            y_pred = np.empty((no_samples, no_features))
-            for sample in np.arange(no_samples):
-                y_pred[sample] = np.mean(np.array(pdfs[sample]), axis=0)
-            print('Computed point estimates.')
+            print('Point estimates have not been found. Please run point_estimates().')
+            exit()
 
         return y_pred
+
+    def _load_posteriors(self):
+
+        pdfs = []
+        no_samples = len(os.listdir(self.path + self.posterior_folder)) - 1
+
+        if no_samples != 0:
+            for sample in np.arange(no_samples):
+                pdf = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "r")
+                pdfs.append(pdf['data'][:])
+            print('Previously saved posteriors have been loaded.')
+        else:
+            print('No posteriors have been found. Run posterior() to generate posteriors.')
+            exit()
+
+        return pdfs
