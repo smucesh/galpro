@@ -8,7 +8,7 @@ import h5py
 from galpro.validation import Validation
 from galpro.plot import Plot
 from galpro.utils import convert_1d_arrays
-from galpro.config import *
+from galpro.conf import set_rf_params
 
 
 class Model:
@@ -47,7 +47,7 @@ class Model:
         self.y_train = y_train
         self.target_features = target_features
         self.model_name = model_name
-        self.params = set_hyperparameters()
+        self.params = set_rf_params()
         self.x_test = x_test
         self.y_test = y_test
 

@@ -3,7 +3,7 @@ import pandas as pd
 import statsmodels.api as sm
 
 from galpro.utils import *
-from galpro.config import *
+from galpro.conf import set_plot_params
 
 
 class Plot:

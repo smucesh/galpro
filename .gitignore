@@ -135,5 +135,4 @@ dmypy.json
 /galpro/test.py
 /.idea
 .DS_Store
-/galpro/config.py
 
