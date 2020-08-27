@@ -7,7 +7,7 @@ from skgof import ks_test, cvm_test
 
 
 def convert_1d_arrays(*arrays):
-    arrays = list(arrays[1:])
+    arrays = list(arrays)
     for i in np.arange(len(arrays)):
         array = arrays[i]
         if array is not None:

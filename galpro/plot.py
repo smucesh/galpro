@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import pandas as pd
 import statsmodels.api as sm
 
@@ -23,7 +24,7 @@ class Plot:
         if self.y_test is not None:
             self.no_samples = self.y_test.shape[0]
 
-        # Initialise plotting parameters
+        # Initialise plotting aesthetics
         set_plot_params()
 
     def plot_scatter(self):
@@ -50,14 +51,14 @@ class Plot:
             plt.plot([], [], ' ', label=f'$RMSE: {metrics[feature]}$')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
-            plt.xlabel(self.target_features[feature])
-            plt.ylabel('$' + self.target_features[feature][1:-1] + '_{ML}$')
+            plt.xlabel('$' + self.target_features[feature] + '$')
+            plt.ylabel('$' + self.target_features[feature] + '_{ML}$')
             plt.legend(edgecolor='None', loc='lower right', framealpha=0)
             plt.savefig(self.path + self.point_estimate_folder + 'plots/' + str(feature) + '_scatter.png',
                         bbox_inches='tight', dpi=300)
             plt.close()
 
-        print('Scatter plots have been saved.')
+        print('Scatter plots have been created.')
 
     def plot_marginal(self):
 
@@ -68,23 +69,23 @@ class Plot:
         pdfs = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
-            pdf = np.array(pdfs[sample])
-            sns.distplot(pdf, bins=10, kde=False, color="darkorchid",
-                         hist_kws={'histtype': 'stepfilled', 'color': 'darkorchid', 'edgecolor': 'darkorchid',
-                                   'alpha': 0.6})
-            plt.axvline(y_pred[sample], color='black', linestyle='--', linewidth='1', label='Predicted')
+            pdf = np.array(pdfs[sample]).reshape(-1,)
+            sns.kdeplot(pdf, color="darkorchid", shade=True)
+            plt.axvline(y_pred[sample], color='black', linestyle='--', linewidth='1', label='$Predicted$')
 
             if self.y_test is not None:
-                plt.axvline(self.y_test[sample], color='gold', linestyle='--', linewidth='1', label='True')
+                plt.axvline(self.y_test[sample], color='gold', linestyle='--', linewidth='1', label='$True$')
                 plt.legend(framealpha=0, edgecolor='None', loc='upper left')
             else:
                 plt.legend(framealpha=0, edgecolor='None', loc='upper left')
 
-            plt.xlabel(self.target_features[0])
+            plt.xlabel('$' + self.target_features[0] + '$')
             plt.ylabel('$N$')
             plt.savefig(self.path + self.posterior_folder + 'plots/' + 'marginal_pdf_' + str(sample) + '.png',
                         bbox_inches='tight', dpi=300)
             plt.close()
+
+        print('Marginal plots have been created.')
 
     def plot_posterior(self):
 
@@ -121,6 +122,8 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
+        print('Posterior plots have been created.')
+
     def plot_corner(self):
 
         # Load point estimates
@@ -155,6 +158,8 @@ class Plot:
             plt.savefig(self.path + self.posterior_folder + 'plots/' + 'corner_plot_' + str(sample) + '.png',
                         bbox_inches='tight', dpi=300)
             plt.close()
+
+        print('Corner plots have been created.')
 
     def plot_pit(self):
 
@@ -198,6 +203,8 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
+        print('PIT plots have been created.')
+
     def plot_coppit(self):
 
         # Load copPITs
@@ -239,6 +246,8 @@ class Plot:
         plt.savefig(self.path + self.validation_folder + 'plots/' + 'coppit.png', bbox_inches='tight', dpi=300)
         plt.close()
 
+        print('copPIT plot has been created.')
+
     def plot_marginal_calibration(self):
 
         # Load marginal calibration
@@ -255,6 +264,8 @@ class Plot:
                         bbox_inches='tight', dpi=300)
             plt.close()
 
+        print('Marginal calibration plots have been created')
+
     def plot_kendall_calibration(self):
 
         # Load kendall calibration
@@ -262,9 +273,12 @@ class Plot:
 
         sns.lineplot(x=np.linspace(0, 1, self.no_points), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
+        plt.xlim([0, 1])
         plt.ylim([-np.max(kendall_calibration), np.max(kendall_calibration)])
         plt.xlabel('$w$')
         plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
         plt.savefig(self.path + self.validation_folder + 'plots/' + 'kendall_calibration.png',
                     bbox_inches='tight', dpi=300)
         plt.close()
+
+        print('Kendall calibration plot has been created.')
