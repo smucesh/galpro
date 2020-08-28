@@ -162,26 +162,26 @@ class Model:
     def validate(self):
         return self.validation.validate()
 
-    def plot_scatter(self):
-        return self.plot.plot_scatter()
+    def plot_scatter(self, show=False, save=True):
+        return self.plot.plot_scatter(show=show, save=save)
 
-    def plot_marginal(self):
-        return self.plot.plot_marginal()
+    def plot_marginal(self, show=False, save=True):
+        return self.plot.plot_marginal(show=show, save=save)
 
-    def plot_joint(self):
-        return self.plot.plot_joint()
+    def plot_joint(self, show=False, save=True):
+        return self.plot.plot_joint(show=show, save=save)
 
-    def plot_corner(self):
-        return self.plot.plot_corner()
+    def plot_corner(self, show=False, save=True):
+        return self.plot.plot_corner(show=show, save=save)
 
-    def plot_pit(self):
-        return self.plot.plot_pit()
+    def plot_pit(self, show=False, save=True):
+        return self.plot.plot_pit(show=show, save=save)
 
-    def plot_coppit(self):
-        return self.plot.plot_coppit()
+    def plot_coppit(self, show=False, save=True):
+        return self.plot.plot_coppit(show=show, save=save)
 
-    def plot_marginal_calibration(self):
-        return self.plot.plot_marginal_calibration()
+    def plot_marginal_calibration(self, show=False, save=True):
+        return self.plot.plot_marginal_calibration(show=show, save=save)
 
-    def plot_kendall_calibration(self):
-        return self.plot.plot_kendall_calibration()
+    def plot_kendall_calibration(self, show=False, save=True):
+        return self.plot.plot_kendall_calibration(show=show, save=save)

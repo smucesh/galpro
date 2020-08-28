@@ -40,7 +40,7 @@ class Plot:
         # Initialise plotting aesthetics
         set_plot_params()
 
-    def plot_scatter(self):
+    def plot_scatter(self, show=False, save=True):
         """Creates scatter plots"""
 
         # Check if y_test is available
@@ -53,7 +53,7 @@ class Plot:
 
         # Convert if 1d array
         if self.no_features == 1:
-            y_pred = convert_1d_arrays(y_pred)
+            y_pred, = convert_1d_arrays(y_pred)
 
         # Get metrics
         metrics = get_pred_metrics(y_test=self.y_test, y_pred=y_pred)
@@ -69,13 +69,18 @@ class Plot:
             plt.xlabel('$' + self.target_features[feature] + '$')
             plt.ylabel('$' + self.target_features[feature] + '_{ML}$')
             plt.legend(edgecolor='None', loc='lower right', framealpha=0)
-            plt.savefig(self.path + self.point_estimate_folder + 'plots/' + str(feature) + '_scatter.png',
-                        bbox_inches='tight', dpi=300)
+
+            if save:
+                plt.savefig(self.path + self.point_estimate_folder + 'plots/' + str(feature) + '_scatter.png',
+                            bbox_inches='tight', dpi=300)
+                print('Scatter plots have been created.')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('Scatter plots have been created.')
-
-    def plot_marginal(self):
+    def plot_marginal(self, show=False, save=True):
         """Creates marginal PDF plots"""
 
         # Load point estimates
@@ -97,13 +102,18 @@ class Plot:
 
             plt.xlabel('$' + self.target_features[0] + '$')
             plt.ylabel('$N$')
-            plt.savefig(self.path + self.posterior_folder + 'plots/' + 'marginal_pdf_' + str(sample) + '.png',
-                        bbox_inches='tight', dpi=300)
+
+            if save:
+                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'marginal_pdf_' + str(sample) + '.png',
+                            bbox_inches='tight', dpi=300)
+                print('Posterior plots have been created.')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('Marginal plots have been created.')
-
-    def plot_joint(self):
+    def plot_joint(self, show=False, save=True):
         """Creates joint PDF plots"""
 
         # Load point estimates
@@ -136,13 +146,18 @@ class Plot:
                 plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
 
             sns.despine(top=False, left=False, right=False, bottom=False)
-            plt.savefig(self.path + self.posterior_folder + 'plots/' + 'joint_pdf_' + str(sample) + '.png',
-                        bbox_inches='tight', dpi=300)
+
+            if save:
+                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'joint_pdf_' + str(sample) + '.png',
+                            bbox_inches='tight', dpi=300)
+                print('Posterior plots have been created.')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('Posterior plots have been created.')
-
-    def plot_corner(self):
+    def plot_corner(self, show=False, save=True):
         """Creates corner PDF plots"""
 
         # Load point estimates
@@ -174,13 +189,18 @@ class Plot:
                                                  linewidth=1)
 
             sns.despine(top=False, left=False, right=False, bottom=False)
-            plt.savefig(self.path + self.posterior_folder + 'plots/' + 'corner_plot_' + str(sample) + '.png',
-                        bbox_inches='tight', dpi=300)
+
+            if save:
+                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'corner_plot_' + str(sample) + '.png',
+                            bbox_inches='tight', dpi=300)
+                print('Corner plots have been created.')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('Corner plots have been created.')
-
-    def plot_pit(self):
+    def plot_pit(self, show=False, save=True):
         """Creates probability integral transform (PIT) distribution plots"""
 
         # Load PITs
@@ -219,13 +239,17 @@ class Plot:
                     row.mode = "expand"
                     row.align = "right"
 
-            plt.savefig(self.path + self.validation_folder + 'plots/' + str(feature) + '_pit.png',
-                        bbox_inches='tight', dpi=300)
+            if save:
+                plt.savefig(self.path + self.validation_folder + 'plots/' + str(feature) + '_pit.png',
+                            bbox_inches='tight', dpi=300)
+                print('PIT plots have been created.')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('PIT plots have been created.')
-
-    def plot_coppit(self):
+    def plot_coppit(self, show=False, save=True):
         """Creates copula probability integral transform (copPIT) distribution plots"""
 
         # Load copPITs
@@ -264,12 +288,16 @@ class Plot:
                 row.mode = "expand"
                 row.align = "right"
 
-        plt.savefig(self.path + self.validation_folder + 'plots/' + 'coppit.png', bbox_inches='tight', dpi=300)
+        if save:
+            plt.savefig(self.path + self.validation_folder + 'plots/' + 'coppit.png', bbox_inches='tight', dpi=300)
+            print('copPIT plot has been created.')
+
+        if show:
+            plt.show()
+
         plt.close()
 
-        print('copPIT plot has been created.')
-
-    def plot_marginal_calibration(self):
+    def plot_marginal_calibration(self, show=False, save=True):
         """Creates marginal calibration plots"""
 
         # Load marginal calibration
@@ -282,13 +310,18 @@ class Plot:
             plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
             plt.xlabel(self.target_features[feature])
             plt.ylabel(r'$\hat{F}_{I} - \tilde{G}_{I}$')
-            plt.savefig(self.path + self.validation_folder + 'plots/' + str(feature) + '_marginal_calibration.png',
-                        bbox_inches='tight', dpi=300)
+
+            if save:
+                plt.savefig(self.path + self.validation_folder + 'plots/' + str(feature) + '_marginal_calibration.png',
+                            bbox_inches='tight', dpi=300)
+                print('Marginal calibration plots have been created')
+
+            if show:
+                plt.show()
+
             plt.close()
 
-        print('Marginal calibration plots have been created')
-
-    def plot_kendall_calibration(self):
+    def plot_kendall_calibration(self, show=False, save=True):
         """Creates kendall calibration plots"""
 
         # Load kendall calibration
@@ -300,8 +333,13 @@ class Plot:
         plt.ylim([-np.max(kendall_calibration), np.max(kendall_calibration)])
         plt.xlabel('$w$')
         plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
-        plt.savefig(self.path + self.validation_folder + 'plots/' + 'kendall_calibration.png',
-                    bbox_inches='tight', dpi=300)
-        plt.close()
 
-        print('Kendall calibration plot has been created.')
+        if save:
+            plt.savefig(self.path + self.validation_folder + 'plots/' + 'kendall_calibration.png',
+                        bbox_inches='tight', dpi=300)
+            print('Kendall calibration plots have been created.')
+
+        if show:
+            plt.show()
+
+        plt.close()
