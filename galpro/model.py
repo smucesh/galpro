@@ -1,10 +1,8 @@
 import os
-
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 import h5py
-
 from galpro.validation import Validation
 from galpro.plot import Plot
 from galpro.utils import convert_1d_arrays
@@ -95,7 +93,7 @@ class Model:
 
     def point_estimate(self, make_plots=False):
         """
-        Make point predictions using the trained model.
+        Make point predictions on test samples using the trained model.
 
         Parameters
         ----------
@@ -108,10 +106,10 @@ class Model:
             exit()
 
         # Use the model to make predictions on new objects
-        preds = self.model.predict(self.x_test)
+        y_pred = self.model.predict(self.x_test)
 
         # Save predictions as numpy arrays
-        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', preds)
+        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', y_pred)
         print('Saved point estimates. Any previously saved point estimates have been overwritten.')
 
         # Save plots
@@ -120,12 +118,12 @@ class Model:
 
     def posterior(self, make_plots=False):
         """
-        Generate posteriors using the trained model.
+        Produce posterior probability distributions of test samples using the trained model.
 
         Parameters
         ----------
         make_plots: bool, optional
-            Whether to make posterior plots or not.
+            Whether to make posterior PDF plots or not.
         """
 
         # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
@@ -144,11 +142,11 @@ class Model:
 
         for sample in np.arange(np.shape(self.x_test)[0]):
             sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
-            sample_pdf = []
+            sample_posterior = []
             for tree in np.arange(self.model.n_estimators):
-                sample_pdf.extend(values[tree][sample_leafs[tree]])
+                sample_posterior.extend(values[tree][sample_leafs[tree]])
             f = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "w")
-            f.create_dataset('data', data=np.array(sample_pdf))
+            f.create_dataset('data', data=np.array(sample_posterior))
 
         print('Saved posteriors. Any previously saved posteriors have been overwritten.')
 
@@ -158,7 +156,7 @@ class Model:
             elif len(self.target_features) > 2:
                 self.plot_corner()
             else:
-                self.plot_posterior()
+                self.plot_joint()
 
     # External Classes functions
     def validate(self):
@@ -170,8 +168,8 @@ class Model:
     def plot_marginal(self):
         return self.plot.plot_marginal()
 
-    def plot_posterior(self):
-        return self.plot.plot_posterior()
+    def plot_joint(self):
+        return self.plot.plot_joint()
 
     def plot_corner(self):
         return self.plot.plot_corner()

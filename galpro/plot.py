@@ -2,12 +2,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import statsmodels.api as sm
-
 from galpro.utils import *
 from galpro.conf import set_plot_params
 
 
 class Plot:
+    """
+    Internal class for creating various plots.
+
+    Parameters
+    ----------
+    y_test: array_like
+        An array of target features of testing galaxies with the same shape as y_train.
+
+    target_features: list
+        A list of variables of target features.
+
+    path: str
+        Location of the model directory.
+    """
 
     def __init__(self, y_test, target_features, path):
 
@@ -28,6 +41,7 @@ class Plot:
         set_plot_params()
 
     def plot_scatter(self):
+        """Creates scatter plots"""
 
         # Check if y_test is available
         if self.y_test is None:
@@ -37,6 +51,7 @@ class Plot:
         # Load point estimates
         y_pred = load_point_estimates(path=self.path)
 
+        # Convert if 1d array
         if self.no_features == 1:
             y_pred = convert_1d_arrays(y_pred)
 
@@ -61,16 +76,17 @@ class Plot:
         print('Scatter plots have been created.')
 
     def plot_marginal(self):
+        """Creates marginal PDF plots"""
 
         # Load point estimates
         y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = load_posteriors(path=self.path)
+        posteriors = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
-            pdf = np.array(pdfs[sample]).reshape(-1,)
-            sns.kdeplot(pdf, color="darkorchid", shade=True)
+            posterior = np.array(posteriors[sample]).reshape(-1,)
+            sns.kdeplot(posterior, color="darkorchid", shade=True)
             plt.axvline(y_pred[sample], color='black', linestyle='--', linewidth='1', label='$Predicted$')
 
             if self.y_test is not None:
@@ -87,17 +103,19 @@ class Plot:
 
         print('Marginal plots have been created.')
 
-    def plot_posterior(self):
+    def plot_joint(self):
+        """Creates joint PDF plots"""
 
         # Load point estimates
         y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = load_posteriors(path=self.path)
+        posteriors = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
-            pdf = np.array(pdfs[sample])
-            g = sns.jointplot(x=pdf[:, 0], y=pdf[:, 1], kind="kde", space=0.1, color="darkorchid", n_levels=10, ratio=4,
+            posterior = np.array(posteriors[sample])
+            g = sns.jointplot(x=posterior[:, 0], y=posterior[:, 1], kind="kde", space=0.1, color="darkorchid",
+                              n_levels=10, ratio=4,
                               marginal_kws={'lw': 3, 'color': 'darkorchid', 'shade': True, 'alpha': 0.6})
             g.plot_joint(plt.scatter, color="green", s=15, marker="o", alpha=0.6, edgecolor='black')
             g.ax_joint.collections[0].set_alpha(0)
@@ -125,19 +143,20 @@ class Plot:
         print('Posterior plots have been created.')
 
     def plot_corner(self):
+        """Creates corner PDF plots"""
 
         # Load point estimates
         y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        pdfs = load_posteriors(path=self.path)
+        posteriors = load_posteriors(path=self.path)
 
         # Get quantiles
-        quantiles = get_quantiles(pdfs=pdfs)
+        quantiles = get_quantiles(posteriors=posteriors)
 
         for sample in np.arange(self.no_samples):
-            pdf = pd.DataFrame(np.array(pdfs[sample]), columns=self.target_features)
-            g = sns.PairGrid(data=pdf, corner=True)
+            posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
+            g = sns.PairGrid(data=posterior, corner=True)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
 
@@ -162,9 +181,10 @@ class Plot:
         print('Corner plots have been created.')
 
     def plot_pit(self):
+        """Creates probability integral transform (PIT) distribution plots"""
 
         # Load PITs
-        pit = np.load(self.path + self.validation_folder + 'pits.npy')
+        pit = load_calibration(path=self.path, calibration_mode='pits')
 
         # Get marginal pdf metrics
         outliers, kld, kst, cvm = get_pdf_metrics(data=pit, no_features=self.no_features)
@@ -206,9 +226,10 @@ class Plot:
         print('PIT plots have been created.')
 
     def plot_coppit(self):
+        """Creates copula probability integral transform (copPIT) distribution plots"""
 
         # Load copPITs
-        coppit = np.load(self.path + self.validation_folder + 'coppits.npy')
+        coppit = load_calibration(path=self.path, calibration_mode='coppits')
 
         # Get full pdf metrics
         outliers, kld, kst, cvm = get_pdf_metrics(data=coppit, no_features=1)
@@ -249,9 +270,10 @@ class Plot:
         print('copPIT plot has been created.')
 
     def plot_marginal_calibration(self):
+        """Creates marginal calibration plots"""
 
         # Load marginal calibration
-        marginal_calibration = np.load(self.path + self.validation_folder + 'marginal_calibration.npy')
+        marginal_calibration = load_calibration(path=self.path, calibration_mode='marginal_calibration')
 
         for feature in np.arange(self.no_features):
             min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
@@ -267,9 +289,10 @@ class Plot:
         print('Marginal calibration plots have been created')
 
     def plot_kendall_calibration(self):
+        """Creates kendall calibration plots"""
 
         # Load kendall calibration
-        kendall_calibration = np.load(self.path + self.validation_folder + 'kendall_calibration.npy')
+        kendall_calibration = load_calibration(path=self.path, calibration_mode='kendall_calibration')
 
         sns.lineplot(x=np.linspace(0, 1, self.no_points), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
