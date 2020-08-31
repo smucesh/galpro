@@ -48,6 +48,7 @@ def set_plot_params():
     mpl.rcParams['font.family'] = "Helvetica"
     mpl.rcParams['mathtext.fontset'] = 'dejavuserif'
     mpl.rcParams['font.size'] = 12
+    mpl.rcParams['savefig.dpi'] = 300
 
 
 

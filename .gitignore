@@ -70,6 +70,10 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/_static
+docs/_templates
+docs/make.bat
+docs/Makefile
 
 # PyBuilder
 target/
@@ -128,11 +132,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
-/galpro/model/
+/galpro/model_2d/
 /galpro/model_1d/
 /galpro/model_nd/
 /galpro/test.py
 /.idea
 .DS_Store
+
+
 
