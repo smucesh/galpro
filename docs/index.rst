@@ -46,4 +46,4 @@ If you use Galpro in your research, please include a citation to this work
    :hidden:
 
    self
-   model.rst
+   model
