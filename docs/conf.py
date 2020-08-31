@@ -59,3 +59,5 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = []
 
 pygments_style = 'sphinx'
+
+autodoc_mock_imports = ['skgof']
