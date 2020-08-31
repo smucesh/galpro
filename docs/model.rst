@@ -2,9 +2,8 @@
 
 Model
 =====
+API documentation!
 
-.. _model-api:
-
-.. automodule:: galpro.model
-   :members:
+.. autoclass:: galpro.model.Model
+    :members:
 
