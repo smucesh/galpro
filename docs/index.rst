@@ -43,7 +43,8 @@ If you use Galpro in your research, please include a citation to this work
 
 
 .. toctree::
+   :maxdepth: 2
    :hidden:
 
    self
-   model
+   model.rst
