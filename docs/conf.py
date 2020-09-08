@@ -60,4 +60,4 @@ html_static_path = []
 
 pygments_style = 'sphinx'
 
-autodoc_mock_imports = ['skgof']
+#autodoc_mock_imports = ['skgof']

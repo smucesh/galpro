@@ -2,8 +2,7 @@ import os
 import h5py
 import numpy as np
 from sklearn.metrics import mean_squared_error
-from scipy.stats import entropy, uniform
-from skgof import ks_test, cvm_test
+from scipy.stats import entropy, kstest
 
 
 def convert_1d_arrays(*arrays):
@@ -87,7 +86,7 @@ def get_pdf_metrics(data, no_features):
     outliers = np.empty(no_features)
     kld = np.empty(no_features)
     kst = np.empty(no_features)
-    cvm = np.empty(no_features)
+    #cvm = np.empty(no_features)
 
     if no_features > 1:
         template = 'data[:, feature]'
@@ -98,12 +97,11 @@ def get_pdf_metrics(data, no_features):
         pit_pdf, pit_bins = np.histogram(eval(template), density=True, bins=no_bins)
         uniform_pdf = np.full(no_bins, 1.0/no_bins)
         kld[feature] = entropy(pit_pdf, uniform_pdf)
-        kst[feature] = ks_test(eval(template), uniform(0, 1))[0]
-        cvm[feature] = cvm_test(eval(template), uniform(0, 1))[0]
+        kst[feature] = kstest(eval(template), 'uniform')[0]
         no_outliers = np.count_nonzero(eval(template) == 0) + np.count_nonzero(eval(template) == 1)
         outliers[feature] = (no_outliers/no_samples) * 100
 
-    return outliers, kld, kst, cvm
+    return outliers, kld, kst
 
 
 def get_quantiles(posteriors):

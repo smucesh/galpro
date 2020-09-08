@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
 import statsmodels.api as sm
 from galpro.utils import *
 from galpro.conf import set_plot_params
@@ -170,8 +169,9 @@ class Plot:
         quantiles = get_quantiles(posteriors=posteriors)
 
         for sample in np.arange(self.no_samples):
-            posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
-            g = sns.PairGrid(data=posterior, corner=True)
+            #posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
+            posterior = np.array(posteriors[sample])
+            g = sns.PairGrid(data=posterior, vars=self.target_features, corner=True)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
 
