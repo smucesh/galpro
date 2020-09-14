@@ -138,6 +138,8 @@ dmypy.json
 /galpro/test.py
 /.idea
 .DS_Store
+/examples
+/galpro/galpro
 
 
 
