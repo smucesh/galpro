@@ -119,14 +119,14 @@ def get_quantiles(posteriors):
     return quantiles
 
 
-def create_templates(self):
+def create_templates(no_features):
     """Creates templates to perform multivariate calibration"""
 
     template = []
     template_same = []
-    for feature in np.arange(self.no_features):
+    for feature in np.arange(no_features):
 
-        if feature != (self.no_features - 1):
+        if feature != (no_features - 1):
             template.append('(posterior[:,' + str(feature) + '] < posterior[pred,' + str(feature) + ']) & ')
             template_same.append('(posterior[:,' + str(feature) + '] == posterior[pred,' + str(feature) + ']) & ')
         else:

@@ -1,8 +1,9 @@
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
-from galpro.utils import *
-from galpro.conf import set_plot_params
+from .utils import *
+from .conf import set_plot_params
 
 
 class Plot:
@@ -115,6 +116,9 @@ class Plot:
     def plot_joint(self, show=False, save=True):
         """Creates joint PDF plots"""
 
+        if self.no_features > 2:
+            print('Number of target features greater than 2. Please use plot_corner().')
+
         # Load point estimates
         y_pred = load_point_estimates(path=self.path)
 
@@ -169,9 +173,9 @@ class Plot:
         quantiles = get_quantiles(posteriors=posteriors)
 
         for sample in np.arange(self.no_samples):
-            #posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
-            posterior = np.array(posteriors[sample])
-            g = sns.PairGrid(data=posterior, vars=self.target_features, corner=True)
+            posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
+            #posterior = np.array(posteriors[sample])
+            g = sns.PairGrid(data=posterior, corner=True)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
 
@@ -207,7 +211,7 @@ class Plot:
         pit = load_calibration(path=self.path, calibration_mode='pits')
 
         # Get marginal pdf metrics
-        outliers, kld, kst, cvm = get_pdf_metrics(data=pit, no_features=self.no_features)
+        outliers, kld, kst = get_pdf_metrics(data=pit, no_features=self.no_features)
 
         for feature in np.arange(self.no_features):
             qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
@@ -223,7 +227,7 @@ class Plot:
             plt.plot([], [], ' ', label=f'$Outliers: {outliers[feature]:.2f}\%$')
             plt.plot([], [], ' ', label=f'$KLD: {kld[feature]:.3f}$')
             plt.plot([], [], ' ', label=f'$KST: {kst[feature]:.3f}$')
-            plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
+            #plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
 
             ax1.set_xlabel('$Q_{theory}/PIT$')
             ax1.set_ylabel('$N$')
@@ -256,7 +260,7 @@ class Plot:
         coppit = load_calibration(path=self.path, calibration_mode='coppits')
 
         # Get full pdf metrics
-        outliers, kld, kst, cvm = get_pdf_metrics(data=coppit, no_features=1)
+        outliers, kld, kst = get_pdf_metrics(data=coppit, no_features=1)
 
         qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
@@ -272,7 +276,7 @@ class Plot:
         plt.plot([], [], ' ', label=f'$Outliers: {outliers[0]:.2f}\%$')
         plt.plot([], [], ' ', label=f'$KLD: {kld[0]:.3f}$')
         plt.plot([], [], ' ', label=f'$KST: {kst[0]:.3f}$')
-        plt.plot([], [], ' ', label=f'$CvM: {cvm[0]:.3f}$')
+        #plt.plot([], [], ' ', label=f'$CvM: {cvm[0]:.3f}$')
 
         ax1.set_xlabel('$Q_{theory}/copPIT$')
         ax1.set_ylabel('$N$')

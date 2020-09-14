@@ -2,9 +2,11 @@ from setuptools import setup
 
 setup(
     name='galpro',
-    version='0.1.0',
+    version='0.1.9',
     packages=['galpro'],
-    url='https://galpro.readthedocs.io',
+    install_requires=['numpy', 'scikit-learn', 'joblib', 'h5py',
+                      'matplotlib', 'statsmodels', 'seaborn', 'scipy', 'pandas'],
+    url='https://galpro.readthedocs.io/',
     license='MIT License',
     author='Sunil Mucesh',
     author_email='smucesh@hotmail.co.uk',

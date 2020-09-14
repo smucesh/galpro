@@ -1,6 +1,6 @@
 import numpy as np
-from galpro.plot import Plot
-from galpro.utils import load_posteriors, create_templates
+from .plot import Plot
+from .utils import load_posteriors, create_templates
 
 
 class Validation:
@@ -43,7 +43,7 @@ class Validation:
         # Initialise classes
         self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
 
-    def validate(self):
+    def validate(self, make_plots=False):
         """Top-level function for performing all modes of validation."""
 
         if self.y_test is None:
@@ -56,14 +56,16 @@ class Validation:
         # Run validation
         self.probabilistic_calibration()
         self.marginal_calibration()
-        self.plot.plot_pit()
-        self.plot.plot_marginal_calibration()
+        if make_plots:
+            self.plot.plot_pit()
+            self.plot.plot_marginal_calibration()
 
         if self.no_features > 1:
             pred_cdf_full, true_cdf_full = self.probabilistic_copula_calibration()
             self.kendall_calibration(pred_cdf_full, true_cdf_full)
-            self.plot.plot_coppit()
-            self.plot.plot_kendall_calibration()
+            if make_plots:
+                self.plot.plot_coppit()
+                self.plot.plot_kendall_calibration()
 
         print('Saved validation. Any previously saved validation has been overwritten.')
 
@@ -110,7 +112,7 @@ class Validation:
         pred_cdf_full = [[] for i in np.arange(self.no_samples)]
         true_cdf_full = []
         coppits = np.empty(self.no_samples)
-        template_pred, template_true, template_same = create_templates()
+        template_pred, template_true, template_same = create_templates(no_features=self.no_features)
 
         for sample in np.arange(self.no_samples):
             posterior = np.array(self.posteriors[sample])
