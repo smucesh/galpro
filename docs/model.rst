@@ -68,3 +68,12 @@ to ``False`` and ``True`` respectively. All plots are saved in the ``/plots/`` f
 The same plots can also be created by setting ``make_plots=True`` when running ``model.point_estimate``,
 ``model.posterior`` or ``model.validate``.
 
+
+Configuration
+-------------
+The hyperparameters associated with the random forest algorithm are defined in the ``conf.py`` file. We expect the
+default hyperparameters to work well in most situations. However, if the user wishes to tune the hyperparameter to their
+liking, they can do so by modifying their values in the configuration file before training a model.
+
+The plotting aesthetics are also defined in the same configuration file. The user can tweak them to their preference by
+stating the matplotlib or seaborn settings accordingly.
