@@ -33,6 +33,7 @@ class Plot:
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
+        self.plot_folder = 'plots/'
 
         if self.y_test is not None:
             self.no_samples = self.y_test.shape[0]
@@ -71,7 +72,7 @@ class Plot:
             plt.legend(edgecolor='None', loc='lower right', framealpha=0)
 
             if save:
-                plt.savefig(self.path + self.point_estimate_folder + 'plots/' + self.target_features[feature]
+                plt.savefig(self.path + self.point_estimate_folder + self.plot_folder + self.target_features[feature]
                             + '_scatter.png', bbox_inches='tight')
                 print('Scatter plots have been created.')
 
@@ -104,8 +105,8 @@ class Plot:
             plt.ylabel('$N$')
 
             if save:
-                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'marginal_pdf_' + str(sample) + '.png',
-                            bbox_inches='tight')
+                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'marginal_pdf_' + str(sample) +
+                            '.png', bbox_inches='tight')
                 print('Posterior plots have been created.')
 
             if show:
@@ -151,7 +152,7 @@ class Plot:
             sns.despine(top=False, left=False, right=False, bottom=False)
 
             if save:
-                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'joint_pdf_' + str(sample) + '.png',
+                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'joint_pdf_' + str(sample) + '.png',
                             bbox_inches='tight')
                 print('Posterior plots have been created.')
 
@@ -195,7 +196,7 @@ class Plot:
             sns.despine(top=False, left=False, right=False, bottom=False)
 
             if save:
-                plt.savefig(self.path + self.posterior_folder + 'plots/' + 'corner_plot_' + str(sample) + '.png',
+                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'corner_plot_' + str(sample) + '.png',
                             bbox_inches='tight')
                 print('Corner plots have been created.')
 
@@ -244,8 +245,8 @@ class Plot:
                     row.align = "right"
 
             if save:
-                plt.savefig(self.path + self.validation_folder + 'plots/' + self.target_features[feature] + '_pit.png',
-                            bbox_inches='tight')
+                plt.savefig(self.path + self.validation_folder + self.plot_folder + self.target_features[feature] +
+                            '_pit.png', bbox_inches='tight')
                 print('PIT plots have been created.')
 
             if show:
@@ -293,7 +294,7 @@ class Plot:
                 row.align = "right"
 
         if save:
-            plt.savefig(self.path + self.validation_folder + 'plots/' + 'coppit.png', bbox_inches='tight')
+            plt.savefig(self.path + self.validation_folder + self.plot_folder + 'coppit.png', bbox_inches='tight')
             print('copPIT plot has been created.')
 
         if show:
@@ -316,7 +317,7 @@ class Plot:
             plt.ylabel(r'$\hat{F}_{I} - \tilde{G}_{I}$')
 
             if save:
-                plt.savefig(self.path + self.validation_folder + 'plots/' + self.target_features[feature] +
+                plt.savefig(self.path + self.validation_folder + self.plot_folder + self.target_features[feature] +
                             '_marginal_calibration.png', bbox_inches='tight')
                 print('Marginal calibration plots have been created')
 
@@ -339,7 +340,8 @@ class Plot:
         plt.ylabel(r'$\mathcal{\hat{K}}_{H_{I}}  - \tilde{J}_{I}$')
 
         if save:
-            plt.savefig(self.path + self.validation_folder + 'plots/' + 'kendall_calibration.png', bbox_inches='tight')
+            plt.savefig(self.path + self.validation_folder + self.plot_folder + 'kendall_calibration.png',
+                        bbox_inches='tight')
             print('Kendall calibration plots have been created.')
 
         if show:

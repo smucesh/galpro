@@ -16,6 +16,10 @@ class Model:
 
     Parameters
     ----------
+    model_name: str
+        The subfolder into which all the information is stored. To train a new model, specify a unique name or to load a
+        previously trained model, specify its model name.
+
     x_train: array_like
         An array of input features of training galaxies with shape [n, x], where n is the number of galaxies and x is
         the number of input features.
@@ -24,44 +28,58 @@ class Model:
         An array of target features of training galaxies with shape [n, y], where n in the number of galaxies and y is
         the number of target features.
 
-    target_features: list
-        A list of variables of target features.
-
-    model_name: str
-        The subfolder into which all the information is stored. To train a new model, specify a unique name or to load a
-        previously trained model, specify its model name.
-
-    x_test: array_like, optional
+    x_test: array_like
         An array of input features of testing galaxies with the same shape as x_train.
 
     y_test: array_like, optional
         An array of target features of testing galaxies with the same shape as y_train.
+
+    target_features: list, optional
+        A list of variables of target features.
+
+    save_model: bool, optional
+        Whether to save model or not.
     """
 
-    def __init__(self, x_train, y_train, target_features, model_name, x_test=None, y_test=None):
+    def __init__(self, model_name, x_train, y_train, x_test, y_test=None, target_features=None, save_model=False):
 
         # Initialise arguments
+        self.model_name = model_name
         self.x_train = x_train
         self.y_train = y_train
-        self.target_features = target_features
-        self.model_name = model_name
-        self.params = set_rf_params()
         self.x_test = x_test
         self.y_test = y_test
+        self.target_features = target_features
+        self.save_model = save_model
+
+        # Get random forest hyperparameters
+        self.params = set_rf_params()
 
         # Creating directory paths
         self.path = os.getcwd() + '/galpro/' + str(model_name) + '/'
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
+        self.plot_folder = 'plots/'
+
+        # Creating target variable names
+        self.no_features = y_train.ndim
+        if self.target_features is None:
+            self.target_features = []
+            for feature in np.arange(self.no_features):
+                self.target_features.append('var_' + str(feature))
 
         # Check if model_name exists
         if os.path.isdir(self.path):
-            print('Model exists.')
+            print('Model directory exists.')
 
-            # Load the model
-            self.model = joblib.load(self.path + str(self.model_name) + '.sav')
-            print('Loaded model.')
+            # Try to load the model
+            if os.path.isfile(self.path + str(self.model_name) + '.sav'):
+                self.model = joblib.load(self.path + str(self.model_name) + '.sav')
+                print('Loaded Model.')
+            else:
+                print('No model found. Please choose a different model_name.')
+                exit()
 
         else:
             # Create the model directory
@@ -71,9 +89,9 @@ class Model:
             os.mkdir(self.path + self.point_estimate_folder)
             os.mkdir(self.path + self.posterior_folder)
             os.mkdir(self.path + self.validation_folder)
-            os.mkdir(self.path + self.point_estimate_folder + 'plots/')
-            os.mkdir(self.path + self.posterior_folder + 'plots/')
-            os.mkdir(self.path + self.validation_folder + 'plots/')
+            os.mkdir(self.path + self.point_estimate_folder + self.plot_folder)
+            os.mkdir(self.path + self.posterior_folder + self.plot_folder)
+            os.mkdir(self.path + self.validation_folder + self.plot_folder)
 
             # Train model
             self.model = RandomForestRegressor(**self.params)
@@ -81,12 +99,13 @@ class Model:
             print('Trained model.')
 
             # Save model to directory
-            model_file = self.model_name + '.sav'
-            joblib.dump(self.model, self.path + model_file)
-            print('Saved model.')
+            if save_model:
+                model_file = self.model_name + '.sav'
+                joblib.dump(self.model, self.path + model_file)
+                print('Saved model.')
 
         # Convert 1d arrays
-        if len(self.target_features) == 1:
+        if self.no_features == 1:
             self.y_train, self.y_test = convert_1d_arrays(self.y_train, self.y_test)
 
         # Initialise external classes
@@ -102,10 +121,6 @@ class Model:
         make_plots: bool, optional
             Whether to make scatter plots or not.
         """
-
-        if self.x_test is None:
-            print('Pass in x_test to make point predictions.')
-            exit()
 
         # Use the model to make predictions on new objects
         y_pred = self.model.predict(self.x_test)

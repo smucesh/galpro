@@ -47,7 +47,7 @@ class Validation:
         """Top-level function for performing all modes of validation."""
 
         if self.y_test is None:
-            print('Pass in y_test to run validation.')
+            print('Pass in y_test to perform validation.')
             exit()
 
         # Load posteriors
