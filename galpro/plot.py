@@ -66,8 +66,8 @@ class Plot:
             plt.plot([], [], ' ', label=f'$RMSE: {metrics[feature]}$')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
-            plt.xlabel('$' + self.target_features[feature] + '$')
-            plt.ylabel('$' + self.target_features[feature] + '_{ML}$')
+            plt.xlabel(self.target_features[feature])
+            plt.ylabel(self.target_features[feature] + '$_{ML}$')
             plt.legend(edgecolor='None', loc='lower right', framealpha=0)
 
             if save:
@@ -100,7 +100,7 @@ class Plot:
             else:
                 plt.legend(framealpha=0, edgecolor='None', loc='upper left')
 
-            plt.xlabel('$' + self.target_features[0] + '$')
+            plt.xlabel(self.target_features[0])
             plt.ylabel('$N$')
 
             if save:
@@ -229,7 +229,7 @@ class Plot:
             plt.plot([], [], ' ', label=f'$KST: {kst[feature]:.3f}$')
             #plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
 
-            ax1.set_xlabel('$Q_{theory}/PIT$')
+            ax1.set_xlabel('$Q_{theory}/PIT($' + self.target_features[feature] + '$)$')
             ax1.set_ylabel('$N$')
             ax2.set_ylabel('$Q_{data}$')
             ax2.set_xlim([0, 1])
