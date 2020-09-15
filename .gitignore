@@ -138,7 +138,10 @@ dmypy.json
 /galpro/test.py
 /.idea
 .DS_Store
-/examples
+/examples/galpro_live_demo_1d.ipynb
+/examples/galpro_live_demo_2d.ipynb
+/examples/galpro_live_demo_nd.ipynb
+/examples/galpro
 /galpro/galpro
 
 
