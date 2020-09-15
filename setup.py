@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='galpro',
-    version='0.2.2',
+    version='0.2.3',
     packages=['galpro'],
     install_requires=['numpy', 'scikit-learn>=0.22.1', 'joblib', 'h5py',
                       'matplotlib', 'statsmodels', 'seaborn', 'scipy>=1.5.2', 'pandas'],
