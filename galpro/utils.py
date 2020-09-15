@@ -2,7 +2,7 @@ import os
 import h5py
 import numpy as np
 from sklearn.metrics import mean_squared_error
-from scipy.stats import entropy, kstest
+from scipy.stats import entropy, kstest, median_abs_deviation
 
 
 def convert_1d_arrays(*arrays):
@@ -69,13 +69,21 @@ def load_calibration(path, calibration_mode):
 def get_pred_metrics(y_test, y_pred):
     """Calculates performance metrics for point predictions."""
 
+    '''
     no_features = y_pred.shape[1]
     rmses = []
     for feature in np.arange(no_features):
         rmse = mean_squared_error(y_true=y_test[:, feature], y_pred=y_pred[:, feature], squared=False)
         rmses.append(np.around(rmse, 3))
+    '''
 
-    return rmses
+    no_features = y_pred.shape[1]
+    mads = []
+    for feature in np.arange(no_features):
+        mad = median_abs_deviation(y_pred[:, feature]-y_test[:, feature], scale=1/1.4826)
+        mads.append(mad)
+
+    return mads
 
 
 def get_pdf_metrics(data, no_features):

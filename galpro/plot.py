@@ -64,7 +64,7 @@ class Plot:
             sns.scatterplot(x=self.y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
                             alpha=0.6, marker='.')
             plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
-            plt.plot([], [], ' ', label=f'$RMSE: {metrics[feature]}$')
+            plt.plot([], [], ' ', label=f'$\sigma_{{MAD}}: {metrics[feature]:.3f}$')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
             plt.xlabel(self.target_features[feature])
@@ -72,7 +72,7 @@ class Plot:
             plt.legend(edgecolor='None', loc='lower right', framealpha=0)
 
             if save:
-                plt.savefig(self.path + self.point_estimate_folder + self.plot_folder + self.target_features[feature]
+                plt.savefig(self.path + self.point_estimate_folder + self.plot_folder + 'var_' + str(feature)
                             + '_scatter.png', bbox_inches='tight')
                 print('Scatter plots have been created.')
 
@@ -196,8 +196,8 @@ class Plot:
             sns.despine(top=False, left=False, right=False, bottom=False)
 
             if save:
-                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'corner_plot_' + str(sample) + '.png',
-                            bbox_inches='tight')
+                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'corner_plot_' + str(sample) + '.png'
+                            , bbox_inches='tight')
                 print('Corner plots have been created.')
 
             if show:
@@ -245,8 +245,8 @@ class Plot:
                     row.align = "right"
 
             if save:
-                plt.savefig(self.path + self.validation_folder + self.plot_folder + self.target_features[feature] +
-                            '_pit.png', bbox_inches='tight')
+                plt.savefig(self.path + self.validation_folder + self.plot_folder + 'var_' + str(feature) + '_pit.png',
+                            bbox_inches='tight')
                 print('PIT plots have been created.')
 
             if show:
@@ -317,7 +317,7 @@ class Plot:
             plt.ylabel(r'$\hat{F}_{I} - \tilde{G}_{I}$')
 
             if save:
-                plt.savefig(self.path + self.validation_folder + self.plot_folder + self.target_features[feature] +
+                plt.savefig(self.path + self.validation_folder + self.plot_folder + 'var_' + str(feature) +
                             '_marginal_calibration.png', bbox_inches='tight')
                 print('Marginal calibration plots have been created')
 
