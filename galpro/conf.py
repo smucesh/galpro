@@ -24,7 +24,7 @@ def set_rf_params():
         'min_impurity_decrease': 0,
         'bootstrap': True,
         'oob_score': False,
-        'n_jobs': None,
+        'n_jobs': -1,
         'random_state': None,
         'verbose': 0,
         'warm_start': False,

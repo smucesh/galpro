@@ -144,5 +144,11 @@ dmypy.json
 /examples/galpro
 /galpro/galpro
 
+examples/data/x_test_balrog.npy
+examples/data/x_train_balrog.npy
+examples/data/y_test_balrog.npy
+examples/data/y_train_balrog.npy
+
+
 
 
