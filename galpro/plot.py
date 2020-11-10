@@ -261,7 +261,7 @@ class Plot:
         coppit = load_calibration(path=self.path, calibration_mode='coppits')
 
         # Get full pdf metrics
-        outliers, kld, kst = get_pdf_metrics(data=coppit, no_features=1)
+        outliers, kld, kst = get_pdf_metrics(data=coppit, no_features=1, path=self.path)
 
         qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]

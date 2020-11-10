@@ -86,7 +86,7 @@ def get_pred_metrics(y_test, y_pred):
     return mads
 
 
-def get_pdf_metrics(data, no_features):
+def get_pdf_metrics(data, no_features, path=None):
     """Calculates performance metrics for PDFs."""
 
     no_bins = 100
@@ -106,7 +106,11 @@ def get_pdf_metrics(data, no_features):
         uniform_pdf = np.full(no_bins, 1.0/no_bins)
         kld[feature] = entropy(pit_pdf, uniform_pdf)
         kst[feature] = kstest(eval(template), 'uniform')[0]
-        no_outliers = np.count_nonzero(eval(template) == 0) + np.count_nonzero(eval(template) == 1)
+        if no_features > 1:
+            no_outliers = np.count_nonzero(eval(template) == 0) + np.count_nonzero(eval(template) == 1)
+        else:
+            pits = load_calibration(path=path, calibration_mode='pits')
+            no_outliers = len(set(np.where((pits == 0) | (pits == 1))[0]))
         outliers[feature] = (no_outliers/no_samples) * 100
 
     return outliers, kld, kst

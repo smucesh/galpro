@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='galpro',
-    version='0.2.3',
+    version='0.2.5',
     packages=['galpro'],
     install_requires=['numpy', 'scikit-learn>=0.22.1', 'joblib', 'h5py',
                       'matplotlib', 'statsmodels', 'seaborn', 'scipy>=1.5.2', 'pandas'],
@@ -10,7 +10,7 @@ setup(
     license='MIT License',
     author='Sunil Mucesh',
     author_email='smucesh@hotmail.co.uk',
-    description='Machine learning galaxy properties and redshift',
+    description='Machine learning galaxy properties',
     project_urls={
         "readthedocs": "https://galpro.readthedocs.io",
         "GitHub": "https://github.com/smucesh/galpro",
