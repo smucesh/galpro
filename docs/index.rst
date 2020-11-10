@@ -2,8 +2,8 @@ Galpro
 ======
 
 Galpro is a novel Python machine learning code based on the Random Forest algorithm for estimating 
-multivariate posterior probability distributions of redshift and galaxy properties (e.g. stellar mass,
-star formation rate, metallicity).
+multivariate posterior probability distributions of redshift and physical properties (e.g. stellar mass,
+star formation rate, metallicity) of galaxies.
 
 .. figure:: images/example_plot.png
    :width: 400 
