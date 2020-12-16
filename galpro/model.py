@@ -155,15 +155,16 @@ class Model:
         # empty list depending on which leaf it is associated with.
         for sample in np.arange(self.x_train.shape[0]):
             for tree in np.arange(self.model.n_estimators):
-                values[tree][leafs[sample, tree]].append(list(self.y_train[sample]))
+                values[tree][leafs[sample, tree]].extend(list(self.y_train[sample]))
 
         for sample in np.arange(np.shape(self.x_test)[0]):
             sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
             sample_posterior = []
             for tree in np.arange(self.model.n_estimators):
                 sample_posterior.extend(values[tree][sample_leafs[tree]])
-            f = h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", "w")
-            f.create_dataset('data', data=np.array(sample_posterior))
+            sample_posterior = np.array(sample_posterior).reshape(-1, 2)
+            with h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", 'w') as f:
+                f.create_dataset('data', data=sample_posterior)
 
         print('Saved posteriors. Any previously saved posteriors have been overwritten.')
 
