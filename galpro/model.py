@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from scipy import sparse
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 import h5py
@@ -143,26 +144,61 @@ class Model:
             Whether to make posterior PDF plots or not.
         """
 
-        # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
-        # associated with training samples.
-        leafs = self.model.apply(self.x_train)
+        if os.path.isfile(self.path + 'trees.npz'):
+            max_leafs, max_samples = np.load(self.path + 'dimensions.npy')
+            values = sparse.load_npz(self.path + 'trees.npz')
+            values = values.toarray()
+            values = values.reshape(self.model.n_estimators, max_leafs, max_samples)
+            print('Loaded trees')
 
-        # Create an empty list which is a list of decision trees within which there are all leafs
-        # Each leaf is an empty list
-        values = [[[] for leaf in np.arange(np.max(leafs) + 1)] for tree in np.arange(self.model.n_estimators)]
+        else:
+            # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
+            # associated with training samples.
+            leafs = self.model.apply(self.x_train)
 
-        # Go through each training sample and append the redshift or stellar mass values to the
-        # empty list depending on which leaf it is associated with.
-        for sample in np.arange(self.x_train.shape[0]):
+            # Get maximum number of leafs in an decision tree
+            # + 1 as leaf index starts from 1
+            max_leafs = np.max(leafs) + 1
+
+            # Create an empty list which is a list of decision trees within which there are all leafs
+            # Each leaf is an empty list
+            values = [[[] for leaf in np.arange(max_leafs)] for tree in np.arange(self.model.n_estimators)]
+
+            # Go through each training sample and append the redshift or stellar mass values to the
+            # empty list depending on which leaf it is associated with.
+            for sample in np.arange(self.x_train.shape[0]):
+                for tree in np.arange(self.model.n_estimators):
+                    values[tree][leafs[sample, tree]].extend(list(self.y_train[sample]))
+
+            # Get maximum number of samples in a leaf node
+            max_samples = max([max(map(len, values[i])) for i in range(self.model.n_estimators)])
+
+            # Convert values to a numpy array
+            values_array = np.empty((self.model.n_estimators, max_leafs, max_samples))
             for tree in np.arange(self.model.n_estimators):
-                values[tree][leafs[sample, tree]].extend(list(self.y_train[sample]))
+                for leaf in np.arange(max_leafs):
+                    values_array[tree, leaf, :len(values[tree][leaf])] = values[tree][leaf]
+
+            del values, leafs
+
+            # Save values_array compressed
+            values_array_sparse = values_array.reshape(self.model.n_estimators, max_leafs * max_samples)
+            values_array_sparse = sparse.csr_matrix(values_array_sparse)
+            sparse.save_npz(self.path + 'trees.npz', values_array_sparse)
+
+            # Save dimensions
+            np.save(self.path + 'dimensions.npy', np.array([max_leafs, max_samples]))
+            print('Saved trees')
+
+            values = values_array
 
         for sample in np.arange(np.shape(self.x_test)[0]):
             sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
             sample_posterior = []
             for tree in np.arange(self.model.n_estimators):
-                sample_posterior.extend(values[tree][sample_leafs[tree]])
-            sample_posterior = np.array(sample_posterior).reshape(-1, 2)
+                #sample_posterior.extend(values[tree][sample_leafs[tree]])
+                sample_posterior.extend(values[tree, sample_leafs[tree]][values[tree, sample_leafs[tree]] != 0.])
+            sample_posterior = np.array(sample_posterior).reshape(-1, self.model.n_outputs_)
             with h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", 'w') as f:
                 f.create_dataset('data', data=sample_posterior)
 
