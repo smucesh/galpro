@@ -1,6 +1,8 @@
 import numpy as np
+import h5py
 from .plot import Plot
 from .utils import load_posteriors, create_templates
+from .conf import set_plot_params
 
 
 class Validation:
@@ -25,49 +27,72 @@ class Validation:
         Location of the model directory.
     """
 
-    def __init__(self, y_test, target_features, path):
+    def __init__(self, y_test, y_pred, posteriors, validation, target_features, no_samples, no_features, path):
 
         # Initialise arguments
         self.y_test = y_test
-        self.path = path
+        self.y_pred = y_pred
+        self.posteriors = posteriors
+        self.validation = validation
         self.target_features = target_features
-        self.posteriors = []
-        self.no_features = len(target_features)
-        self.no_points = 100
+        self.no_samples = no_samples
+        self.no_features = no_features
+        self.path = path
+
+        # Internal parameters
+        self.no_points = set_plot_params()[0]
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
 
-        if self.y_test is not None:
-            self.no_samples = self.y_test.shape[0]
-
         # Initialise classes
-        self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
+        self.plot = Plot(y_test=self.y_test, y_pred=self.y_pred, posteriors=self.posteriors, validation=self.validation,
+                         target_features=self.target_features, no_samples=self.no_samples, no_features=self.no_features,
+                         path=self.path)
 
-    def validate(self, make_plots=False):
+    def validate(self, save_validation=False, make_plots=False):
         """Top-level function for performing all modes of validation."""
 
         if self.y_test is None:
-            print('Pass in y_test to perform validation.')
+            print('Provide y_test to perform validation.')
             exit()
 
         # Load posteriors
-        self.posteriors = load_posteriors(path=self.path)
+        if self.posteriors is None:
+            self.posteriors = load_posteriors(path=self.path)
+
+        # Validation file
+        validation = h5py.File(self.path + self.validation_folder + "validation.h5", 'w', driver='core',
+                               backing_store=save_validation)
 
         # Run validation
-        self.probabilistic_calibration()
-        self.marginal_calibration()
-        if make_plots:
-            self.plot.plot_pit()
-            self.plot.plot_marginal_calibration()
+        pits = self.probabilistic_calibration()
+        marginal_calibration = self.marginal_calibration()
+        validation.create_dataset('pits', data=pits)
+        validation.create_dataset('marginal_calibration', data=marginal_calibration)
 
         if self.no_features > 1:
-            pred_cdf_full, true_cdf_full = self.probabilistic_copula_calibration()
-            self.kendall_calibration(pred_cdf_full, true_cdf_full)
-            if make_plots:
+            coppits, pred_cdf_full, true_cdf_full = self.probabilistic_copula_calibration()
+            kendall_calibration = self.kendall_calibration(pred_cdf_full, true_cdf_full)
+            validation.create_dataset('coppits', data=coppits)
+            validation.create_dataset('kendall_calibration', data=kendall_calibration)
+
+        # Create plots
+        self.plot.validation = validation
+        if make_plots:
+            print('Creating PIT plots.')
+            self.plot.plot_pit()
+            print('Creating marginal calibration plots.')
+            self.plot.plot_marginal_calibration()
+            if self.no_features > 1:
+                print('Creating copPIT plots.')
                 self.plot.plot_coppit()
+                print('Creating kendall calibration plots.')
                 self.plot.plot_kendall_calibration()
 
-        print('Saved validation. Any previously saved validation has been overwritten.')
+        if save_validation:
+            print('Saved validation. Any previously saved validation has been overwritten.')
+
+        return validation
 
     def probabilistic_calibration(self):
         """Performs probabilistic calibration"""
@@ -76,11 +101,11 @@ class Validation:
 
         for feature in np.arange(self.no_features):
             for sample in np.arange(self.no_samples):
-                posterior = np.array(self.posteriors[sample])
+                posterior = self.posteriors[str(sample)][:]
                 pits[sample, feature] = np.sum(posterior[:, feature] <= self.y_test[sample, feature]) / posterior.shape[0]
 
         print('Completed probabilistic calibration.')
-        np.save(self.path + self.validation_folder + 'pits.npy', pits)
+        return pits
 
     def marginal_calibration(self):
         """Performs marginal calibration"""
@@ -94,7 +119,7 @@ class Validation:
             for point in np.linspace(min_, max_, self.no_points):
                 sum_ = np.zeros(self.no_samples)
                 for sample in np.arange(self.no_samples):
-                    posterior = np.array(self.posteriors[sample])
+                    posterior = self.posteriors[str(sample)][:]
                     sum_[sample] = np.sum(posterior[:, feature] <= point) / posterior.shape[0]
 
                 pred_cdf_marg_point = np.sum(sum_) / self.no_samples
@@ -102,8 +127,8 @@ class Validation:
                 marginal_calibration[count, feature] = pred_cdf_marg_point - true_cdf_marg_point
                 count += 1
 
-        np.save(self.path + self.validation_folder + 'marginal_calibration.npy', marginal_calibration)
         print('Completed marginal calibration.')
+        return marginal_calibration
 
     def probabilistic_copula_calibration(self):
         """Performs probabilistic copula calibration"""
@@ -115,7 +140,7 @@ class Validation:
         template_pred, template_true, template_same = create_templates(no_features=self.no_features)
 
         for sample in np.arange(self.no_samples):
-            posterior = np.array(self.posteriors[sample])
+            posterior = self.posteriors[str(sample)][:]
             no_preds = posterior.shape[0]
 
             for pred in np.arange(no_preds):
@@ -129,10 +154,8 @@ class Validation:
             true_cdf_full.append(np.sum(eval(template_true)) / no_preds)
             coppits[sample] = np.sum(pred_cdf_full[sample] <= true_cdf_full[sample]) / no_preds
 
-        np.save(self.path + self.validation_folder + 'coppits.npy', coppits)
-        print('Completed probabilistic copula calibration')
-
-        return pred_cdf_full, true_cdf_full
+        print('Completed probabilistic copula calibration.')
+        return coppits, pred_cdf_full, true_cdf_full
 
     def kendall_calibration(self, pred_cdf_full, true_cdf_full):
         """Performs kendall calibration"""
@@ -150,5 +173,5 @@ class Validation:
             kendall_calibration[count] = kendall_func_point - true_cdf_point
             count += 1
 
-        np.save(self.path + self.validation_folder + 'kendall_calibration.npy', kendall_calibration)
-        print('Completed kendall calibration')
+        print('Completed kendall calibration.')
+        return kendall_calibration

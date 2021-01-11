@@ -6,7 +6,7 @@ import joblib
 import h5py
 from .validation import Validation
 from .plot import Plot
-from .utils import convert_1d_arrays
+from .utils import convert_1d_arrays, create_directories
 from .conf import set_rf_params
 
 
@@ -18,7 +18,7 @@ class Model:
     Parameters
     ----------
     model_name: str
-        The subfolder into which all the information is stored. To train a new model, specify a unique name or to load a
+        The folder into which all the information is stored. To train a new model, specify a unique name or to load a
         previously trained model, specify its model name.
 
     x_train: array_like
@@ -53,22 +53,30 @@ class Model:
         self.target_features = target_features
         self.save_model = save_model
 
-        # Get random forest hyperparameters
-        self.params = set_rf_params()
+        # Internal parameters
+        self.no_samples = self.x_test.shape[0]
 
-        # Creating directory paths
-        self.path = os.getcwd() + '/galpro/' + str(model_name) + '/'
+        try:
+            self.no_features = self.y_train.shape[1]
+        except IndexError:
+            self.no_features = self.y_train.ndim
+
+        # Define directory paths
+        self.path = os.getcwd() + '/galpro/' + str(self.model_name) + '/'
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
         self.plot_folder = 'plots/'
 
         # Creating target variable names
-        self.no_features = y_train.ndim
         if self.target_features is None:
             self.target_features = []
             for feature in np.arange(self.no_features):
                 self.target_features.append('var_' + str(feature))
+
+        # Convert 1d arrays
+        if self.no_features == 1:
+            self.y_train, self.y_test = convert_1d_arrays(self.y_train, self.y_test)
 
         # Check if model_name exists
         if os.path.isdir(self.path):
@@ -77,173 +85,217 @@ class Model:
             # Try to load the model
             if os.path.isfile(self.path + str(self.model_name) + '.sav'):
                 self.model = joblib.load(self.path + str(self.model_name) + '.sav')
-                print('Loaded Model.')
+                max_leafs, max_samples = np.load(self.path + 'dimensions.npy')
+                self.trees = sparse.load_npz(self.path + 'trees.npz')
+                self.trees = self.trees.toarray()
+                self.trees = self.trees.reshape(self.model.n_estimators, max_leafs, max_samples)
+                print('Loaded model.')
             else:
-                print('No model found. Please choose a different model_name.')
+                print('No model found. Choose a different model_name or delete the directory.')
                 exit()
 
         else:
             # Create the model directory
-            if not os.path.isdir(os.getcwd() + '/galpro/'):
-                os.mkdir(os.getcwd() + '/galpro/')
-            os.mkdir(self.path)
-            os.mkdir(self.path + self.point_estimate_folder)
-            os.mkdir(self.path + self.posterior_folder)
-            os.mkdir(self.path + self.validation_folder)
-            os.mkdir(self.path + self.point_estimate_folder + self.plot_folder)
-            os.mkdir(self.path + self.posterior_folder + self.plot_folder)
-            os.mkdir(self.path + self.validation_folder + self.plot_folder)
+            create_directories(model_name=self.model_name)
+
+            # Get random forest hyperparameters
+            self.params = set_rf_params()
 
             # Train model
             self.model = RandomForestRegressor(**self.params)
+            print('Training model.')
             self.model.fit(self.x_train, self.y_train)
             print('Trained model.')
 
-            # Save model to directory
+            # Build trees
+            self.trees, max_leafs, max_samples = self._build_trees()
+
+            # Save model
             if save_model:
                 model_file = self.model_name + '.sav'
                 joblib.dump(self.model, self.path + model_file)
+
+                # Save trees
+                trees_sparse = self.trees.reshape(self.model.n_estimators, max_leafs * max_samples)
+                trees_sparse = sparse.csr_matrix(trees_sparse)
+                sparse.save_npz(self.path + 'trees.npz', trees_sparse)
+
+                # Save dimensions
+                np.save(self.path + 'dimensions.npy', np.array([max_leafs, max_samples]))
                 print('Saved model.')
 
-        # Convert 1d arrays
-        if self.no_features == 1:
-            self.y_train, self.y_test = convert_1d_arrays(self.y_train, self.y_test)
-
         # Initialise external classes
-        self.plot = Plot(y_test=self.y_test, target_features=self.target_features, path=self.path)
-        self.validation = Validation(y_test=self.y_test, target_features=self.target_features, path=self.path)
+        self.plot = Plot(y_test=self.y_test, y_pred=None, posteriors=None, target_features=self.target_features,
+                         validation=None, no_samples=self.no_samples, no_features=self.no_features, path=self.path)
+        self.validation = Validation(y_test=self.y_test, y_pred=None, posteriors=None, validation=None,
+                                     target_features=self.target_features, no_samples=self.no_samples,
+                                     no_features=self.no_features, path=self.path)
 
-    def point_estimate(self, make_plots=False):
+    def point_estimate(self, save_estimates=False, make_plots=False):
         """
         Make point predictions on test samples using the trained model.
 
         Parameters
         ----------
+        save_estimates: bool, optional
+            Whether to save point estimates or not.
+
         make_plots: bool, optional
             Whether to make scatter plots or not.
         """
 
         # Use the model to make predictions on new objects
+        print('Generating point estimates.')
         y_pred = self.model.predict(self.x_test)
 
-        # Save predictions as numpy arrays
-        np.save(self.path + self.point_estimate_folder + 'point_estimates.npy', y_pred)
-        print('Saved point estimates. Any previously saved point estimates have been overwritten.')
+        # Update class variables
+        self.plot.y_pred = y_pred
 
         # Save plots
         if make_plots:
             self.plot_scatter()
 
-    def posterior(self, make_plots=False):
+        # Save predictions
+        if save_estimates:
+            with h5py.File(self.path + self.point_estimate_folder + "point_estimates.h5", 'w') as f:
+                f.create_dataset('point_estimates', data=y_pred)
+            print('Saved point estimates. Any previously saved point estimates have been overwritten.')
+
+        return y_pred
+
+    def _build_trees(self):
+
+        # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
+        # associated with training samples.
+        leafs = self.model.apply(self.x_train)
+
+        # Get maximum number of leafs in an decision tree
+        # + 1 as leaf index starts from 1
+        max_leafs = np.max(leafs) + 1
+
+        # Create an empty list which is a list of decision trees within which there are all leafs
+        # Each leaf is an empty list
+        trees = [[[] for leaf in np.arange(max_leafs)] for tree in np.arange(self.model.n_estimators)]
+
+        # Go through each training sample and append the redshift or stellar mass values to the
+        # empty list depending on which leaf it is associated with.
+        for sample in np.arange(self.x_train.shape[0]):
+            for tree in np.arange(self.model.n_estimators):
+                trees[tree][leafs[sample, tree]].extend(list(self.y_train[sample]))
+
+        # Get maximum number of samples in a leaf node
+        max_samples = max([max(map(len, trees[i])) for i in range(self.model.n_estimators)])
+
+        # Convert values to a numpy array
+        trees_array = np.empty((self.model.n_estimators, max_leafs, max_samples))
+        for tree in np.arange(self.model.n_estimators):
+            for leaf in np.arange(max_leafs):
+                trees_array[tree, leaf, :len(trees[tree][leaf])] = trees[tree][leaf]
+
+        del trees, leafs
+        trees = trees_array
+        return trees, max_leafs, max_samples
+
+    def _posterior_generator(self):
+        """
+        Generates posterior probability distributions on the fly.
+
+        """
+        for sample in np.arange(self.no_samples):
+            sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
+            sample_posterior = []
+            for tree in np.arange(self.model.n_estimators):
+                sample_posterior.extend(self.trees[tree, sample_leafs[tree]]
+                                        [self.trees[tree, sample_leafs[tree]] != 0.])
+            sample_posterior = np.array(sample_posterior).reshape(-1, self.model.n_outputs_)
+            yield sample_posterior
+
+    def posterior(self, save_posteriors=False, make_plots=False, on_the_fly=True):
         """
         Produce posterior probability distributions of test samples using the trained model.
 
         Parameters
         ----------
+        save_posteriors: bool, optional
+            Whether to save posteriors or not.
+
         make_plots: bool, optional
             Whether to make posterior PDF plots or not.
+
+        on_the_fly: bool, optional
+            Whether to generate posteriors on-the-fly.
         """
 
-        if os.path.isfile(self.path + 'trees.npz'):
-            max_leafs, max_samples = np.load(self.path + 'dimensions.npy')
-            values = sparse.load_npz(self.path + 'trees.npz')
-            values = values.toarray()
-            values = values.reshape(self.model.n_estimators, max_leafs, max_samples)
-            print('Loaded trees')
+        # Return posteriors if running on-the-fly
+        print('Generating posteriors.')
+        if on_the_fly:
+            return self._posterior_generator()
 
         else:
-            # A numpy array with shape training_samples * n_estimators of leaf numbers in each decision tree
-            # associated with training samples.
-            leafs = self.model.apply(self.x_train)
+            posteriors = h5py.File(self.path + self.posterior_folder + "posteriors.h5", 'w', driver='core',
+                                   backing_store=save_posteriors)
+            posterior = self._posterior_generator()
+            for sample in np.arange(self.no_samples):
+                posteriors.create_dataset(str(sample), data=next(posterior))
 
-            # Get maximum number of leafs in an decision tree
-            # + 1 as leaf index starts from 1
-            max_leafs = np.max(leafs) + 1
+            # Update class variables
+            self.plot.posteriors = posteriors
+            self.validation.posteriors = posteriors
 
-            # Create an empty list which is a list of decision trees within which there are all leafs
-            # Each leaf is an empty list
-            values = [[[] for leaf in np.arange(max_leafs)] for tree in np.arange(self.model.n_estimators)]
+            if make_plots:
+                if len(self.target_features) < 2:
+                    self.plot_marginal()
+                elif len(self.target_features) > 2:
+                    self.plot_corner()
+                else:
+                    self.plot_joint()
 
-            # Go through each training sample and append the redshift or stellar mass values to the
-            # empty list depending on which leaf it is associated with.
-            for sample in np.arange(self.x_train.shape[0]):
-                for tree in np.arange(self.model.n_estimators):
-                    values[tree][leafs[sample, tree]].extend(list(self.y_train[sample]))
-
-            # Get maximum number of samples in a leaf node
-            max_samples = max([max(map(len, values[i])) for i in range(self.model.n_estimators)])
-
-            # Convert values to a numpy array
-            values_array = np.empty((self.model.n_estimators, max_leafs, max_samples))
-            for tree in np.arange(self.model.n_estimators):
-                for leaf in np.arange(max_leafs):
-                    values_array[tree, leaf, :len(values[tree][leaf])] = values[tree][leaf]
-
-            del values, leafs
-
-            # Save values_array compressed
-            values_array_sparse = values_array.reshape(self.model.n_estimators, max_leafs * max_samples)
-            values_array_sparse = sparse.csr_matrix(values_array_sparse)
-            sparse.save_npz(self.path + 'trees.npz', values_array_sparse)
-
-            # Save dimensions
-            np.save(self.path + 'dimensions.npy', np.array([max_leafs, max_samples]))
-            print('Saved trees')
-
-            values = values_array
-
-        for sample in np.arange(np.shape(self.x_test)[0]):
-            sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
-            sample_posterior = []
-            for tree in np.arange(self.model.n_estimators):
-                #sample_posterior.extend(values[tree][sample_leafs[tree]])
-                sample_posterior.extend(values[tree, sample_leafs[tree]][values[tree, sample_leafs[tree]] != 0.])
-            sample_posterior = np.array(sample_posterior).reshape(-1, self.model.n_outputs_)
-            with h5py.File(self.path + self.posterior_folder + str(sample) + ".h5", 'w') as f:
-                f.create_dataset('data', data=sample_posterior)
-
-        print('Saved posteriors. Any previously saved posteriors have been overwritten.')
-
-        if make_plots:
-            if len(self.target_features) < 2:
-                self.plot_marginal()
-            elif len(self.target_features) > 2:
-                self.plot_corner()
-            else:
-                self.plot_joint()
+            if save_posteriors:
+                print('Saved posteriors. Any previously saved posteriors have been overwritten.')
 
     # External Class functions
-    def validate(self, make_plots=False):
+    def validate(self, save_validation=False, make_plots=False):
         """
         Validate univariate and/or multivariate posterior PDFs generated by the trained model.
 
         Parameters
         ----------
+        save_validation: bool, optional
+            Whether to save validation or not.
+            
         make_plots: bool, optional
-            Whether to make posterior PDF plots or not.
+            Whether to make validation plots or not.
         """
-        return self.validation.validate(make_plots=make_plots)
+        return self.validation.validate(save_validation=save_validation, make_plots=make_plots)
 
     def plot_scatter(self, show=False, save=True):
+        print('Creating scatter plots.')
         return self.plot.plot_scatter(show=show, save=save)
 
     def plot_marginal(self, show=False, save=True):
+        print('Creating posterior plots.')
         return self.plot.plot_marginal(show=show, save=save)
 
     def plot_joint(self, show=False, save=True):
+        print('Creating posterior plots.')
         return self.plot.plot_joint(show=show, save=save)
 
     def plot_corner(self, show=False, save=True):
+        print('Creating posterior plots.')
         return self.plot.plot_corner(show=show, save=save)
 
     def plot_pit(self, show=False, save=True):
+        print('Creating PIT plots.')
         return self.plot.plot_pit(show=show, save=save)
 
     def plot_coppit(self, show=False, save=True):
+        print('Creating copPIT plots.')
         return self.plot.plot_coppit(show=show, save=save)
 
     def plot_marginal_calibration(self, show=False, save=True):
+        print('Creating marginal calibration plots.')
         return self.plot.plot_marginal_calibration(show=show, save=save)
 
     def plot_kendall_calibration(self, show=False, save=True):
+        print('Creating kendall calibration plots.')
         return self.plot.plot_kendall_calibration(show=show, save=save)

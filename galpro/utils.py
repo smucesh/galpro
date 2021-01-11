@@ -1,8 +1,30 @@
 import os
 import h5py
 import numpy as np
-from sklearn.metrics import mean_squared_error
 from scipy.stats import entropy, kstest, median_abs_deviation
+
+
+def create_directories(model_name):
+
+    # Define directories
+    path = os.getcwd() + '/galpro/' + str(model_name) + '/'
+    point_estimate_folder = 'point_estimates/'
+    posterior_folder = 'posteriors/'
+    validation_folder = 'validation/'
+    plot_folder = 'plots/'
+
+    # Create root directory
+    if not os.path.isdir(os.getcwd() + '/galpro/'):
+        os.mkdir(os.getcwd() + '/galpro/')
+
+    # Create model directory
+    os.mkdir(path)
+    os.mkdir(path + point_estimate_folder)
+    os.mkdir(path + posterior_folder)
+    os.mkdir(path + validation_folder)
+    os.mkdir(path + point_estimate_folder + plot_folder)
+    os.mkdir(path + posterior_folder + plot_folder)
+    os.mkdir(path + validation_folder + plot_folder)
 
 
 def convert_1d_arrays(*arrays):
@@ -20,10 +42,10 @@ def convert_1d_arrays(*arrays):
 def load_point_estimates(path):
     """Loads saved point estimates."""
 
-    y_pred = []
     point_estimate_folder = 'point_estimates/'
-    if os.path.isfile(path + point_estimate_folder + 'point_estimates.npy'):
-        y_pred = np.load(path + point_estimate_folder + 'point_estimates.npy')
+    if os.path.isfile(path + point_estimate_folder + 'point_estimates.h5'):
+        with h5py.File(path + point_estimate_folder + "point_estimates.h5", 'r') as f:
+            y_pred = f['point_estimates'][:]
         print('Previously saved point estimates have been loaded.')
     else:
         print('Point estimates have not been found. Run point_estimates().')
@@ -35,14 +57,9 @@ def load_point_estimates(path):
 def load_posteriors(path):
     """Loads saved posteriors."""
 
-    posteriors = []
     posterior_folder = 'posteriors/'
-    no_samples = len(os.listdir(path + posterior_folder)) - 1
-
-    if no_samples != 0:
-        for sample in np.arange(no_samples):
-            posterior = h5py.File(path + posterior_folder + str(sample) + ".h5", "r")
-            posteriors.append(posterior['data'][:])
+    if os.path.isfile(path + posterior_folder + 'posteriors.h5'):
+        posteriors = h5py.File(path + posterior_folder + "posteriors.h5", "r")
         print('Previously saved posteriors have been loaded.')
     else:
         print('No posteriors have been found. Run posterior() to generate posteriors.')
@@ -51,81 +68,66 @@ def load_posteriors(path):
     return posteriors
 
 
-def load_calibration(path, calibration_mode):
+def load_validation(path):
     """Loads different calibrations"""
 
     validation_folder = 'validation/'
-    calibration = None
-    if os.path.isfile(path + validation_folder + calibration_mode + '.npy'):
-        calibration = np.load(path + validation_folder + calibration_mode + '.npy')
-        print('Previously saved ' + calibration_mode + ' has been loaded.')
+    if os.path.isfile(path + validation_folder + 'validation.h5'):
+        validation = h5py.File(path + validation_folder + "validation.h5", "r")
+        print('Previously saved validation has been loaded.')
     else:
-        print(calibration_mode + ' has not been found. Run validate().')
+        print('No validation has been found. Run validate().')
         exit()
 
-    return calibration
+    return validation
 
 
-def get_pred_metrics(y_test, y_pred):
+def get_pred_metrics(y_test, y_pred, no_features):
     """Calculates performance metrics for point predictions."""
 
-    '''
-    no_features = y_pred.shape[1]
-    rmses = []
+    metrics = np.empty(no_features)
     for feature in np.arange(no_features):
-        rmse = mean_squared_error(y_true=y_test[:, feature], y_pred=y_pred[:, feature], squared=False)
-        rmses.append(np.around(rmse, 3))
-    '''
+        nmad = median_abs_deviation(y_pred[:, feature]-y_test[:, feature], scale=1/1.4826)
+        metrics[feature] = nmad
 
-    no_features = y_pred.shape[1]
-    mads = []
-    for feature in np.arange(no_features):
-        mad = median_abs_deviation(y_pred[:, feature]-y_test[:, feature], scale=1/1.4826)
-        mads.append(mad)
-
-    return mads
+    return metrics
 
 
-def get_pdf_metrics(data, no_features, path=None):
+def get_pdf_metrics(pits, no_samples, no_features, no_bins, coppits=None):
     """Calculates performance metrics for PDFs."""
 
-    no_bins = 100
-    no_samples = data.shape[0]
-    outliers = np.empty(no_features)
-    kld = np.empty(no_features)
-    kst = np.empty(no_features)
-    #cvm = np.empty(no_features)
-
-    if no_features > 1:
-        template = 'data[:, feature]'
-    else:
-        template = 'data'
+    pit_outliers = np.empty(no_features)
+    pit_kld = np.empty(no_features)
+    pit_kst = np.empty(no_features)
 
     for feature in np.arange(no_features):
-        pit_pdf, pit_bins = np.histogram(eval(template), density=True, bins=no_bins)
+        pit_pdf, pit_bins = np.histogram(pits[:, feature], density=True, bins=no_bins)
         uniform_pdf = np.full(no_bins, 1.0/no_bins)
-        kld[feature] = entropy(pit_pdf, uniform_pdf)
-        kst[feature] = kstest(eval(template), 'uniform')[0]
-        if no_features > 1:
-            no_outliers = np.count_nonzero(eval(template) == 0) + np.count_nonzero(eval(template) == 1)
-        else:
-            pits = load_calibration(path=path, calibration_mode='pits')
-            no_outliers = len(set(np.where((pits == 0) | (pits == 1))[0]))
-        outliers[feature] = (no_outliers/no_samples) * 100
+        pit_kld[feature] = entropy(pit_pdf, uniform_pdf)
+        pit_kst[feature] = kstest(pits[:, feature], 'uniform')[0]
+        no_outliers = np.count_nonzero(pits[:, feature] == 0) + np.count_nonzero(pits[:, feature] == 1)
+        pit_outliers[feature] = (no_outliers / no_samples) * 100
 
-    return outliers, kld, kst
+    if coppits is not None:
+        coppit_pdf, coppit_bins = np.histogram(coppits, density=True, bins=no_bins)
+        uniform_pdf = np.full(no_bins, 1.0 / no_bins)
+        coppit_kld = entropy(coppit_pdf, uniform_pdf)
+        coppit_kst = kstest(coppits, 'uniform')[0]
+        no_outliers = len(set(np.where((pits == 0) | (pits == 1))[0]))
+        coppit_outliers = (no_outliers/no_samples) * 100
+        return coppit_outliers, coppit_kld, coppit_kst
+
+    return pit_outliers, pit_kld, pit_kst
 
 
-def get_quantiles(posteriors):
+def get_quantiles(posteriors, no_samples, no_features):
     """Calculate the 16th, 50th and 84th quantiles."""
 
-    no_samples = len(posteriors)
-    no_features = len(posteriors[0][0])
     quantiles = np.empty((no_features, no_samples, 3))
 
     for feature in np.arange(no_features):
         for sample in np.arange(no_samples):
-            posterior = np.array(posteriors[sample])
+            posterior = posteriors[str(sample)][:]
             quantiles[feature, sample] = np.percentile(a=posterior[:, feature], q=[16, 50, 84])
 
     return quantiles

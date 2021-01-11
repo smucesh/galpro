@@ -22,24 +22,26 @@ class Plot:
         Location of the model directory.
     """
 
-    def __init__(self, y_test, target_features, path):
+    def __init__(self, y_test, y_pred, posteriors, validation, target_features, no_samples, no_features, path):
 
         # Initialise arguments
         self.y_test = y_test
+        self.y_pred = y_pred
+        self.posteriors = posteriors
+        self.validation = validation
         self.target_features = target_features
+        self.no_samples = no_samples
+        self.no_features = no_features
         self.path = path
-        self.no_features = len(target_features)
-        self.no_points = 100
+
+        # Internal parameters
         self.point_estimate_folder = 'point_estimates/'
         self.posterior_folder = 'posteriors/'
         self.validation_folder = 'validation/'
         self.plot_folder = 'plots/'
 
-        if self.y_test is not None:
-            self.no_samples = self.y_test.shape[0]
-
         # Initialise plotting aesthetics
-        set_plot_params()
+        self.no_bins, self.no_points = set_plot_params()
 
     def plot_scatter(self, show=False, save=True):
         """Creates scatter plots"""
@@ -50,21 +52,22 @@ class Plot:
             exit()
 
         # Load point estimates
-        y_pred = load_point_estimates(path=self.path)
+        if self.y_pred is None:
+            self.y_pred = load_point_estimates(path=self.path)
 
         # Convert if 1d array
         if self.no_features == 1:
-            y_pred, = convert_1d_arrays(y_pred)
+            self.y_pred, = convert_1d_arrays(self.y_pred)
 
         # Get metrics
-        metrics = get_pred_metrics(y_test=self.y_test, y_pred=y_pred)
+        metrics = get_pred_metrics(y_test=self.y_test, y_pred=self.y_pred, no_features=self.no_features)
 
         for feature in np.arange(self.no_features):
             min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
-            sns.scatterplot(x=self.y_test[:, feature], y=y_pred[:, feature], color='purple', edgecolor='purple',
+            sns.scatterplot(x=self.y_test[:, feature], y=self.y_pred[:, feature], color='purple', edgecolor='purple',
                             alpha=0.6, marker='.')
             plt.plot([min_, max_], [min_, max_], color='black', linestyle='--', linewidth='1')
-            plt.plot([], [], ' ', label=f'$\sigma_{{MAD}}: {metrics[feature]:.3f}$')
+            plt.plot([], [], ' ', label=f'$\sigma_{{NMAD}}: {metrics[feature]:.3f}$')
             plt.xlim([min_, max_])
             plt.ylim([min_, max_])
             plt.xlabel(self.target_features[feature])
@@ -74,8 +77,6 @@ class Plot:
             if save:
                 plt.savefig(self.path + self.point_estimate_folder + self.plot_folder + 'var_' + str(feature)
                             + '_scatter.png', bbox_inches='tight')
-                print('Scatter plots have been created.')
-
             if show:
                 plt.show()
 
@@ -84,16 +85,23 @@ class Plot:
     def plot_marginal(self, show=False, save=True):
         """Creates marginal PDF plots"""
 
+        # Check if 1d
+        if self.no_features != 1:
+            print('Number of target features is not equal to 1. Please use plot_joint() or plot_corner().')
+            exit()
+
         # Load point estimates
-        y_pred = load_point_estimates(path=self.path)
+        if self.y_pred is None:
+            self.y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        posteriors = load_posteriors(path=self.path)
+        if self.posteriors is None:
+            self.posteriors = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
-            posterior = np.array(posteriors[sample]).reshape(-1,)
+            posterior = self.posteriors[str(sample)][:].reshape(-1,)
             sns.kdeplot(posterior, color="darkorchid", shade=True)
-            plt.axvline(y_pred[sample], color='black', linestyle='--', linewidth='1', label='$Predicted$')
+            plt.axvline(self.y_pred[sample], color='black', linestyle='--', linewidth='1', label='$Predicted$')
 
             if self.y_test is not None:
                 plt.axvline(self.y_test[sample], color='gold', linestyle='--', linewidth='1', label='$True$')
@@ -102,13 +110,11 @@ class Plot:
                 plt.legend(framealpha=0, edgecolor='None', loc='upper left')
 
             plt.xlabel(self.target_features[0])
-            plt.ylabel('$N$')
+            plt.ylabel(f'$f(${self.target_features[0]}$)$')
 
             if save:
                 plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'marginal_pdf_' + str(sample) +
                             '.png', bbox_inches='tight')
-                print('Posterior plots have been created.')
-
             if show:
                 plt.show()
 
@@ -117,17 +123,21 @@ class Plot:
     def plot_joint(self, show=False, save=True):
         """Creates joint PDF plots"""
 
-        if self.no_features > 2:
-            print('Number of target features greater than 2. Please use plot_corner().')
+        if self.no_features == 1 or self.no_features > 2:
+            print('Number of target features is less than or greater than 2. Please use plot_marginal or plot_corner().'
+                  '')
+            exit()
 
         # Load point estimates
-        y_pred = load_point_estimates(path=self.path)
+        if self.y_pred is None:
+            self.y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        posteriors = load_posteriors(path=self.path)
+        if self.posteriors is None:
+            self.posteriors = load_posteriors(path=self.path)
 
         for sample in np.arange(self.no_samples):
-            posterior = np.array(posteriors[sample])
+            posterior = self.posteriors[str(sample)][:]
             g = sns.jointplot(x=posterior[:, 0], y=posterior[:, 1], kind="kde", space=0.1, color="darkorchid",
                               n_levels=10, ratio=4,
                               marginal_kws={'lw': 3, 'color': 'darkorchid', 'shade': True, 'alpha': 0.6})
@@ -135,16 +145,16 @@ class Plot:
             g.ax_joint.collections[0].set_alpha(0)
             g.set_axis_labels(self.target_features[0], self.target_features[1])
 
-            g.ax_marg_x.axvline(y_pred[sample, 0], color='white', linestyle='--', linewidth='2')
-            g.ax_marg_y.axhline(y_pred[sample, 1], color='white', linestyle='--', linewidth='2')
-            predicted, = plt.plot(y_pred[sample, 0], y_pred[sample, 1], color='white', marker='*', markersize=10,
-                                  linestyle='None', label='$Predicted$')
+            g.ax_marg_x.axvline(self.y_pred[sample, 0], color='white', linestyle='--', linewidth='2')
+            g.ax_marg_y.axhline(self.y_pred[sample, 1], color='white', linestyle='--', linewidth='2')
+            predicted, = plt.plot(self.y_pred[sample, 0], self.y_pred[sample, 1], color='white', marker='*',
+                                  markersize=10, linestyle='None', label='$Predicted$')
 
             if self.y_test is not None:
                 g.ax_marg_x.axvline(self.y_test[sample, 0], color='gold', linestyle='--', linewidth='2')
                 g.ax_marg_y.axhline(self.y_test[sample, 1], color='gold', linestyle='--', linewidth='2')
-                true, = plt.plot(self.y_test[sample, 0], self.y_test[sample, 1], color='gold', marker='*', markersize=10,
-                                 linestyle='None', label='$True$')
+                true, = plt.plot(self.y_test[sample, 0], self.y_test[sample, 1], color='gold', marker='*',
+                                 markersize=10, linestyle='None', label='$True$')
                 plt.legend(handles=[true, predicted], facecolor='lightgrey', loc='lower right')
             else:
                 plt.legend(handles=[predicted], facecolor='lightgrey', loc='lower right')
@@ -154,8 +164,6 @@ class Plot:
             if save:
                 plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'joint_pdf_' + str(sample) + '.png',
                             bbox_inches='tight')
-                print('Posterior plots have been created.')
-
             if show:
                 plt.show()
 
@@ -164,18 +172,25 @@ class Plot:
     def plot_corner(self, show=False, save=True):
         """Creates corner PDF plots"""
 
+        if self.no_features < 2:
+            print('Number of target features is 1. Please use plot_marginal().')
+            exit()
+
         # Load point estimates
-        y_pred = load_point_estimates(path=self.path)
+        if self.y_pred is None:
+            self.y_pred = load_point_estimates(path=self.path)
 
         # Load posteriors
-        posteriors = load_posteriors(path=self.path)
+        if self.posteriors is None:
+            self.posteriors = load_posteriors(path=self.path)
 
         # Get quantiles
-        quantiles = get_quantiles(posteriors=posteriors)
+        quantiles = get_quantiles(posteriors=self.posteriors, no_samples=self.no_samples, no_features=self.no_features)
 
         for sample in np.arange(self.no_samples):
-            posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
-            #posterior = np.array(posteriors[sample])
+            posterior = self.posteriors[str(sample)][:]
+            posterior = pd.DataFrame(posterior, columns=self.target_features)
+            #posterior = pd.DataFrame(np.array(posteriors[sample]), columns=self.target_features)
             g = sns.PairGrid(data=posterior, corner=True)
             g = g.map_lower(sns.kdeplot, shade=True, color='darkorchid', n_levels=10, shade_lowest=False)
             g = g.map_diag(sns.kdeplot, lw=2, color='darkorchid', shade=True)
@@ -196,10 +211,8 @@ class Plot:
             sns.despine(top=False, left=False, right=False, bottom=False)
 
             if save:
-                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'corner_plot_' + str(sample) + '.png'
+                plt.savefig(self.path + self.posterior_folder + self.plot_folder + 'corner_pdf_' + str(sample) + '.png'
                             , bbox_inches='tight')
-                print('Corner plots have been created.')
-
             if show:
                 plt.show()
 
@@ -209,17 +222,21 @@ class Plot:
         """Creates probability integral transform (PIT) distribution plots"""
 
         # Load PITs
-        pit = load_calibration(path=self.path, calibration_mode='pits')
+        if self.validation is None:
+            self.validation = load_validation(path=self.path)
+
+        pits = self.validation['pits'][:]
 
         # Get marginal pdf metrics
-        outliers, kld, kst = get_pdf_metrics(data=pit, no_features=self.no_features)
+        outliers, kld, kst = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
+                                             no_bins=self.no_bins, coppits=None)
 
         for feature in np.arange(self.no_features):
-            qqplot = sm.qqplot(pit[:, feature], 'uniform', line='45').gca().lines
+            qqplot = sm.qqplot(pits[:, feature], 'uniform', line='45').gca().lines
             qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
             plt.close()
 
-            ax1 = sns.distplot(pit[:, feature], bins=self.no_points, kde=False,
+            ax1 = sns.distplot(pits[:, feature], bins=self.no_bins, kde=False,
                                hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
                                          'alpha': 0.5})
             ax2 = plt.twinx()
@@ -230,7 +247,7 @@ class Plot:
             plt.plot([], [], ' ', label=f'$KST: {kst[feature]:.3f}$')
             #plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
 
-            ax1.set_xlabel('$Q_{theory}/PIT($' + self.target_features[feature] + '$)$')
+            ax1.set_xlabel('$Q_{theory} \ | \ PIT \ ($' + self.target_features[feature] + '$)$')
             ax1.set_ylabel('$N$')
             ax2.set_ylabel('$Q_{data}$')
             ax2.set_xlim([0, 1])
@@ -247,8 +264,6 @@ class Plot:
             if save:
                 plt.savefig(self.path + self.validation_folder + self.plot_folder + 'var_' + str(feature) + '_pit.png',
                             bbox_inches='tight')
-                print('PIT plots have been created.')
-
             if show:
                 plt.show()
 
@@ -257,29 +272,38 @@ class Plot:
     def plot_coppit(self, show=False, save=True):
         """Creates copula probability integral transform (copPIT) distribution plots"""
 
+        if self.no_features < 2:
+            print('Cannot plot copPIT as number of target features is less than 2.')
+            exit()
+
         # Load copPITs
-        coppit = load_calibration(path=self.path, calibration_mode='coppits')
+        if self.validation is None:
+            self.validation = load_validation(path=self.path)
+
+        pits = self.validation['pits'][:]
+        coppits = self.validation['coppits'][:]
 
         # Get full pdf metrics
-        outliers, kld, kst = get_pdf_metrics(data=coppit, no_features=1, path=self.path)
+        outliers, kld, kst = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
+                                             no_bins=self.no_bins, coppits=coppits)
 
-        qqplot = sm.qqplot(coppit, 'uniform', line='45').gca().lines
+        qqplot = sm.qqplot(coppits, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
         plt.close()
 
-        ax1 = sns.distplot(coppit, bins=self.no_points, kde=False,
+        ax1 = sns.distplot(coppits, bins=self.no_bins, kde=False,
                            hist_kws={'histtype': 'stepfilled', 'color': 'slategrey', 'edgecolor': 'slategrey',
                                      'alpha': 0.5}
                            )
         ax2 = plt.twinx()
         ax2 = sns.lineplot(x=qq_theory, y=qq_data, color='blue')
         ax2.plot([0, 1], [0, 1], color='black', linewidth=1, linestyle='--')
-        plt.plot([], [], ' ', label=f'$Outliers: {outliers[0]:.2f}\%$')
-        plt.plot([], [], ' ', label=f'$KLD: {kld[0]:.3f}$')
-        plt.plot([], [], ' ', label=f'$KST: {kst[0]:.3f}$')
+        plt.plot([], [], ' ', label=f'$Outliers: {outliers:.2f}\%$')
+        plt.plot([], [], ' ', label=f'$KLD: {kld:.3f}$')
+        plt.plot([], [], ' ', label=f'$KST: {kst:.3f}$')
         #plt.plot([], [], ' ', label=f'$CvM: {cvm[0]:.3f}$')
 
-        ax1.set_xlabel('$Q_{theory}/copPIT$')
+        ax1.set_xlabel('$Q_{theory} \ | \ copPIT$')
         ax1.set_ylabel('$N$')
         ax2.set_ylabel('$Q_{data}$')
         ax2.set_xlim([0, 1])
@@ -295,8 +319,6 @@ class Plot:
 
         if save:
             plt.savefig(self.path + self.validation_folder + self.plot_folder + 'coppit.png', bbox_inches='tight')
-            print('copPIT plot has been created.')
-
         if show:
             plt.show()
 
@@ -306,7 +328,10 @@ class Plot:
         """Creates marginal calibration plots"""
 
         # Load marginal calibration
-        marginal_calibration = load_calibration(path=self.path, calibration_mode='marginal_calibration')
+        if self.validation is None:
+            self.validation = load_validation(path=self.path)
+
+        marginal_calibration = self.validation['marginal_calibration'][:]
 
         for feature in np.arange(self.no_features):
             min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
@@ -319,8 +344,6 @@ class Plot:
             if save:
                 plt.savefig(self.path + self.validation_folder + self.plot_folder + 'var_' + str(feature) +
                             '_marginal_calibration.png', bbox_inches='tight')
-                print('Marginal calibration plots have been created')
-
             if show:
                 plt.show()
 
@@ -329,8 +352,15 @@ class Plot:
     def plot_kendall_calibration(self, show=False, save=True):
         """Creates kendall calibration plots"""
 
+        if self.no_features < 2:
+            print('Cannot plot kendall calibration as number of target features is less than 2.')
+            exit()
+
         # Load kendall calibration
-        kendall_calibration = load_calibration(path=self.path, calibration_mode='kendall_calibration')
+        if self.validation is None:
+            self.validation = load_validation(path=self.path)
+
+        kendall_calibration = self.validation['kendall_calibration'][:]
 
         sns.lineplot(x=np.linspace(0, 1, self.no_points), y=kendall_calibration, color="blue")
         plt.axhline(0, color='black', linewidth=1, linestyle='--')
@@ -342,8 +372,6 @@ class Plot:
         if save:
             plt.savefig(self.path + self.validation_folder + self.plot_folder + 'kendall_calibration.png',
                         bbox_inches='tight')
-            print('Kendall calibration plots have been created.')
-
         if show:
             plt.show()
 

@@ -49,6 +49,10 @@ def set_plot_params():
     mpl.rcParams['mathtext.fontset'] = 'dejavuserif'
     mpl.rcParams['font.size'] = 12
     mpl.rcParams['savefig.dpi'] = 300
+    no_points = 100  # Number of evaluation points for marginal and kendall calibration
+    no_bins = 100  # Number of bins for histogram plots
+
+    return no_bins, no_points
 
 
 
