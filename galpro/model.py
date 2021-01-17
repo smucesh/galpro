@@ -1,4 +1,6 @@
 import os
+import gc
+import atexit
 import numpy as np
 from scipy import sparse
 from sklearn.ensemble import RandomForestRegressor
@@ -131,6 +133,12 @@ class Model:
                                      target_features=self.target_features, no_samples=self.no_samples,
                                      no_features=self.no_features, path=self.path)
 
+        @atexit.register
+        def end():
+            for obj in gc.get_objects():
+                if isinstance(obj, h5py.File):
+                    obj.close()
+
     def point_estimate(self, save_estimates=False, make_plots=False):
         """
         Make point predictions on test samples using the trained model.
@@ -144,8 +152,9 @@ class Model:
             Whether to make scatter plots or not.
         """
 
-        # Use the model to make predictions on new objects
         print('Generating point estimates.')
+
+        # Use the model to make predictions on new objects
         y_pred = self.model.predict(self.x_test)
 
         # Update class variables
@@ -201,8 +210,10 @@ class Model:
         Generates posterior probability distributions on the fly.
 
         """
+        leafs = self.model.apply(self.x_test)
+
         for sample in np.arange(self.no_samples):
-            sample_leafs = self.model.apply(self.x_test[sample].reshape(1, self.model.n_features_))[0]
+            sample_leafs = leafs[sample]
             sample_posterior = []
             for tree in np.arange(self.model.n_estimators):
                 sample_posterior.extend(self.trees[tree, sample_leafs[tree]]
@@ -226,8 +237,9 @@ class Model:
             Whether to generate posteriors on-the-fly.
         """
 
-        # Return posteriors if running on-the-fly
         print('Generating posteriors.')
+
+        # Return posteriors if running on-the-fly
         if on_the_fly:
             return self._posterior_generator()
 
@@ -252,6 +264,8 @@ class Model:
 
             if save_posteriors:
                 print('Saved posteriors. Any previously saved posteriors have been overwritten.')
+
+            return posteriors
 
     # External Class functions
     def validate(self, save_validation=False, make_plots=False):
