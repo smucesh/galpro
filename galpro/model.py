@@ -280,7 +280,14 @@ class Model:
         make_plots: bool, optional
             Whether to make validation plots or not.
         """
-        return self.validation.validate(save_validation=save_validation, make_plots=make_plots)
+
+        # Run validation
+        validation = self.validation.validate(save_validation=save_validation, make_plots=make_plots)
+
+        # Update validation
+        self.plot.validation = validation
+
+        return validation
 
     def plot_scatter(self, show=False, save=True):
         print('Creating scatter plots.')
