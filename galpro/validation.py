@@ -99,10 +99,9 @@ class Validation:
 
         pits = np.empty((self.no_samples, self.no_features))
 
-        for feature in np.arange(self.no_features):
-            for sample in np.arange(self.no_samples):
-                posterior = self.posteriors[str(sample)][:]
-                pits[sample, feature] = np.sum(posterior[:, feature] <= self.y_test[sample, feature]) / posterior.shape[0]
+        for sample in np.arange(self.no_samples):
+            posterior = self.posteriors[str(sample)][:]
+            pits[sample] = np.sum(posterior <= self.y_test[sample], axis=0) / posterior.shape[0]
 
         print('Completed probabilistic calibration.')
         return pits
@@ -110,23 +109,21 @@ class Validation:
     def marginal_calibration(self):
         """Performs marginal calibration"""
 
+        points = np.linspace(np.min(self.y_test, axis=0)), np.ceil(np.max(self.y_test, axis=0), self.no_points)
         marginal_calibration = np.empty((self.no_points, self.no_features))
 
-        for feature in np.arange(self.no_features):
-            count = 0
-            min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
+        for point in np.arange(self.no_points):
+            probs = np.zeros(self.no_features)
 
-            for point in np.linspace(min_, max_, self.no_points):
-                sum_ = np.zeros(self.no_samples)
-                for sample in np.arange(self.no_samples):
-                    posterior = self.posteriors[str(sample)][:]
-                    sum_[sample] = np.sum(posterior[:, feature] <= point) / posterior.shape[0]
+            for sample in np.arange(self.no_samples):
+                posterior = self.posteriors[str(sample)][:]
+                probs += np.sum(posterior <= points[point], axis=0) / posterior.shape[0]
 
-                pred_cdf_marg_point = np.sum(sum_) / self.no_samples
-                true_cdf_marg_point = np.sum(self.y_test[:, feature] <= point) / self.no_samples
-                marginal_calibration[count, feature] = pred_cdf_marg_point - true_cdf_marg_point
-                count += 1
+            pred_cdf_marg_point = probs / self.no_samples
+            true_cdf_marg_point = np.sum(self.y_test <= points[point], axis=0) / self.no_samples
+            marginal_calibration[point] = pred_cdf_marg_point - true_cdf_marg_point
 
+        marginal_calibration = np.stack((points, marginal_calibration))
         print('Completed marginal calibration.')
         return marginal_calibration
 

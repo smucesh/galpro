@@ -334,8 +334,7 @@ class Plot:
         marginal_calibration = self.validation['marginal_calibration'][:]
 
         for feature in np.arange(self.no_features):
-            min_, max_ = [np.floor(np.min(self.y_test[:, feature])), np.ceil(np.max(self.y_test[:, feature]))]
-            sns.lineplot(x=np.linspace(min_, max_, self.no_points), y=marginal_calibration[:, feature], color="blue")
+            sns.lineplot(x=marginal_calibration[0, :, feature], y=marginal_calibration[1, :, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
             plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
             plt.xlabel(self.target_features[feature])
