@@ -109,7 +109,7 @@ class Validation:
     def marginal_calibration(self):
         """Performs marginal calibration"""
 
-        points = np.linspace(np.min(self.y_test, axis=0)), np.ceil(np.max(self.y_test, axis=0), self.no_points)
+        points = np.linspace(np.floor(np.min(self.y_test, axis=0)), np.ceil(np.max(self.y_test, axis=0)), self.no_points)
         marginal_calibration = np.empty((self.no_points, self.no_features))
 
         for point in np.arange(self.no_points):

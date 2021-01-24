@@ -336,7 +336,7 @@ class Plot:
         for feature in np.arange(self.no_features):
             sns.lineplot(x=marginal_calibration[0, :, feature], y=marginal_calibration[1, :, feature], color="blue")
             plt.axhline(0, color='black', linewidth=1, linestyle='--')
-            plt.ylim([-np.max(marginal_calibration), np.max(marginal_calibration)])
+            plt.ylim([-np.max(marginal_calibration[1, :, feature]), np.max(marginal_calibration[1, :, feature])])
             plt.xlabel(self.target_features[feature])
             plt.ylabel(r'$\hat{F}_{I} - \tilde{G}_{I}$')
 
