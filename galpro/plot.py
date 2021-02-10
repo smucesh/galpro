@@ -1,3 +1,4 @@
+from sys import exit
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -228,8 +229,8 @@ class Plot:
         pits = self.validation['pits'][:]
 
         # Get marginal pdf metrics
-        outliers, kld, kst = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
-                                             no_bins=self.no_bins, coppits=None)
+        outliers, kld, kst, cvm = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
+                                                  no_bins=self.no_bins, coppits=None)
 
         for feature in np.arange(self.no_features):
             qqplot = sm.qqplot(pits[:, feature], 'uniform', line='45').gca().lines
@@ -245,7 +246,7 @@ class Plot:
             plt.plot([], [], ' ', label=f'$Outliers: {outliers[feature]:.2f}\%$')
             plt.plot([], [], ' ', label=f'$KLD: {kld[feature]:.3f}$')
             plt.plot([], [], ' ', label=f'$KST: {kst[feature]:.3f}$')
-            #plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
+            plt.plot([], [], ' ', label=f'$CvM: {cvm[feature]:.3f}$')
 
             ax1.set_xlabel('$Q_{theory} \ | \ PIT \ ($' + self.target_features[feature] + '$)$')
             ax1.set_ylabel('$N$')
@@ -284,8 +285,8 @@ class Plot:
         coppits = self.validation['coppits'][:]
 
         # Get full pdf metrics
-        outliers, kld, kst = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
-                                             no_bins=self.no_bins, coppits=coppits)
+        outliers, kld, kst, cvm = get_pdf_metrics(pits=pits, no_samples=self.no_samples, no_features=self.no_features,
+                                                  no_bins=self.no_bins, coppits=coppits)
 
         qqplot = sm.qqplot(coppits, 'uniform', line='45').gca().lines
         qq_theory, qq_data = [qqplot[0].get_xdata(), qqplot[0].get_ydata()]
@@ -301,7 +302,7 @@ class Plot:
         plt.plot([], [], ' ', label=f'$Outliers: {outliers:.2f}\%$')
         plt.plot([], [], ' ', label=f'$KLD: {kld:.3f}$')
         plt.plot([], [], ' ', label=f'$KST: {kst:.3f}$')
-        #plt.plot([], [], ' ', label=f'$CvM: {cvm[0]:.3f}$')
+        plt.plot([], [], ' ', label=f'$CvM: {cvm:.3f}$')
 
         ax1.set_xlabel('$Q_{theory} \ | \ copPIT$')
         ax1.set_ylabel('$N$')

@@ -2,10 +2,10 @@ from setuptools import setup
 
 setup(
     name='galpro',
-    version='0.3.0',
+    version='0.1.0',
     packages=['galpro'],
     install_requires=['numpy', 'scikit-learn>=0.22.1', 'joblib', 'h5py',
-                      'matplotlib', 'statsmodels', 'seaborn', 'scipy>=1.5.2', 'pandas'],
+                      'matplotlib', 'statsmodels==0.11.0', 'seaborn==0.10.1', 'scipy>=1.6.0', 'pandas'],
     url='https://galpro.readthedocs.io/',
     license='MIT License',
     author='Sunil Mucesh',
@@ -14,5 +14,6 @@ setup(
     project_urls={
         "readthedocs": "https://galpro.readthedocs.io",
         "GitHub": "https://github.com/smucesh/galpro",
+        "arXiv": "https://arxiv.org/abs/2012.05928"
     }
 )

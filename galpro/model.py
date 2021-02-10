@@ -1,6 +1,7 @@
 import os
 import gc
 import atexit
+from sys import exit
 import numpy as np
 from scipy import sparse
 from sklearn.ensemble import RandomForestRegressor
@@ -104,10 +105,9 @@ class Model:
             self.params = set_rf_params()
 
             # Train model
+            print('Training model...')
             self.model = RandomForestRegressor(**self.params)
-            print('Training model.')
             self.model.fit(self.x_train, self.y_train)
-            print('Trained model.')
 
             # Build trees
             self.trees, max_leafs, max_samples = self._build_trees()
@@ -152,7 +152,7 @@ class Model:
             Whether to make scatter plots or not.
         """
 
-        print('Generating point estimates.')
+        print('Generating point estimates...')
 
         # Use the model to make predictions on new objects
         y_pred = self.model.predict(self.x_test)
@@ -237,7 +237,7 @@ class Model:
             Whether to generate posteriors on-the-fly.
         """
 
-        print('Generating posteriors.')
+        print('Generating posteriors...')
 
         # Return posteriors if running on-the-fly
         if on_the_fly:
@@ -281,6 +281,8 @@ class Model:
             Whether to make validation plots or not.
         """
 
+        print('Performing validation...')
+
         # Run validation
         validation = self.validation.validate(save_validation=save_validation, make_plots=make_plots)
 
@@ -290,33 +292,33 @@ class Model:
         return validation
 
     def plot_scatter(self, show=False, save=True):
-        print('Creating scatter plots.')
+        print('Creating scatter plots...')
         return self.plot.plot_scatter(show=show, save=save)
 
     def plot_marginal(self, show=False, save=True):
-        print('Creating posterior plots.')
+        print('Creating posterior plots...')
         return self.plot.plot_marginal(show=show, save=save)
 
     def plot_joint(self, show=False, save=True):
-        print('Creating posterior plots.')
+        print('Creating posterior plots...')
         return self.plot.plot_joint(show=show, save=save)
 
     def plot_corner(self, show=False, save=True):
-        print('Creating posterior plots.')
+        print('Creating posterior plots...')
         return self.plot.plot_corner(show=show, save=save)
 
     def plot_pit(self, show=False, save=True):
-        print('Creating PIT plots.')
+        print('Creating PIT plots...')
         return self.plot.plot_pit(show=show, save=save)
 
     def plot_coppit(self, show=False, save=True):
-        print('Creating copPIT plots.')
+        print('Creating copPIT plots...')
         return self.plot.plot_coppit(show=show, save=save)
 
     def plot_marginal_calibration(self, show=False, save=True):
-        print('Creating marginal calibration plots.')
+        print('Creating marginal calibration plots...')
         return self.plot.plot_marginal_calibration(show=show, save=save)
 
     def plot_kendall_calibration(self, show=False, save=True):
-        print('Creating kendall calibration plots.')
+        print('Creating kendall calibration plots...')
         return self.plot.plot_kendall_calibration(show=show, save=save)

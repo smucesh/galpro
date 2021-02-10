@@ -141,17 +141,30 @@ dmypy.json
 /examples/galpro_live_demo_1d.ipynb
 /examples/galpro_live_demo_2d.ipynb
 /examples/galpro_live_demo_nd.ipynb
+/examples/galpro_demo_cosmos_aper3.ipynb
+/examples/galpro_demo_cosmos_auto.ipynb
+/examples/galpro_demo_cosmos_total.ipynb
+
 /examples/galpro
 /galpro/galpro
 
-examples/data/x_test.npy
-examples/data/x_train.npy
-examples/data/y_test.npy
-examples/data/y_train.npy
+examples/data/x_test_deep.npy
+examples/data/x_train_deep.npy
+examples/data/y_test_deep.npy
+examples/data/y_train_deep.npy
 examples/data/x_test_balrog.npy
 examples/data/x_train_balrog.npy
 examples/data/y_test_balrog.npy
 examples/data/y_train_balrog.npy
+examples/data/x_test_cosmos_aper3.npy
+examples/data/x_train_cosmos_aper3.npy
+examples/data/y_test_cosmos_aper3.npy
+examples/data/y_train_cosmos_aper3.npy
+examples/data/x_test_cosmos_total.npy
+examples/data/x_train_cosmos_total.npy
+examples/data/y_test_cosmos_total.npy
+examples/data/y_train_cosmos_total.npy
+examples/my_env/
 
 
 

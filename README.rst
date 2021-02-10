@@ -4,7 +4,7 @@ Galpro is a novel Python machine learning code based on the Random Forest algori
 posterior probability distributions of galaxy properties (e.g. redshift, stellar mass, star formation rate,
 metallicity). Documentation for the package is available at `galpro.readthedocs.io <https://galpro.readthedocs.io/>`_.
 
-Galpro is in the final stages of development and will be hosted on PyPI in the near future::
+Galpro is hosted on PyPI and can be installed using::
 
     pip install galpro
 

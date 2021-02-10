@@ -1,3 +1,4 @@
+from sys import exit
 import numpy as np
 import h5py
 from .plot import Plot
@@ -79,14 +80,14 @@ class Validation:
         # Create plots
         self.plot.validation = validation
         if make_plots:
-            print('Creating PIT plots.')
+            print('Creating PIT plots...')
             self.plot.plot_pit()
-            print('Creating marginal calibration plots.')
+            print('Creating marginal calibration plots...')
             self.plot.plot_marginal_calibration()
             if self.no_features > 1:
-                print('Creating copPIT plots.')
+                print('Creating copPIT plots...')
                 self.plot.plot_coppit()
-                print('Creating kendall calibration plots.')
+                print('Creating kendall calibration plots...')
                 self.plot.plot_kendall_calibration()
 
         if save_validation:

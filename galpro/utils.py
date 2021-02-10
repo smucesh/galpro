@@ -1,7 +1,8 @@
+from sys import exit
 import os
 import h5py
 import numpy as np
-from scipy.stats import entropy, kstest, median_abs_deviation
+from scipy.stats import entropy, kstest, median_abs_deviation, cramervonmises
 
 
 def create_directories(model_name):
@@ -99,12 +100,14 @@ def get_pdf_metrics(pits, no_samples, no_features, no_bins, coppits=None):
     pit_outliers = np.empty(no_features)
     pit_kld = np.empty(no_features)
     pit_kst = np.empty(no_features)
+    pit_cvm = np.empty(no_features)
 
     for feature in np.arange(no_features):
         pit_pdf, pit_bins = np.histogram(pits[:, feature], density=True, bins=no_bins)
         uniform_pdf = np.full(no_bins, 1.0/no_bins)
         pit_kld[feature] = entropy(pit_pdf, uniform_pdf)
         pit_kst[feature] = kstest(pits[:, feature], 'uniform')[0]
+        pit_cvm[feature] = cramervonmises(pits[:, feature], 'uniform').statistic
         no_outliers = np.count_nonzero(pits[:, feature] == 0) + np.count_nonzero(pits[:, feature] == 1)
         pit_outliers[feature] = (no_outliers / no_samples) * 100
 
@@ -113,11 +116,12 @@ def get_pdf_metrics(pits, no_samples, no_features, no_bins, coppits=None):
         uniform_pdf = np.full(no_bins, 1.0 / no_bins)
         coppit_kld = entropy(coppit_pdf, uniform_pdf)
         coppit_kst = kstest(coppits, 'uniform')[0]
+        coppit_cvm = cramervonmises(coppits, 'uniform').statistic
         no_outliers = len(set(np.where((pits == 0) | (pits == 1))[0]))
         coppit_outliers = (no_outliers/no_samples) * 100
-        return coppit_outliers, coppit_kld, coppit_kst
+        return coppit_outliers, coppit_kld, coppit_kst, coppit_cvm
 
-    return pit_outliers, pit_kld, pit_kst
+    return pit_outliers, pit_kld, pit_kst, pit_cvm
 
 
 def get_quantiles(posteriors, no_samples, no_features):
