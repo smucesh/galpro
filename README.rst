@@ -8,3 +8,9 @@ Galpro is hosted on PyPI and can be installed using::
 
     pip install galpro
 
+
+.. image:: docs/images/example_plot.png
+   :width: 400
+
+Joint redshift - stellar mass posterior PDF
+(See `Mucesh et al. 2020 <https://arxiv.org/abs/2012.05928>`_).
